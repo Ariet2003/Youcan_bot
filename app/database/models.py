@@ -19,6 +19,8 @@ class User(Base):
     user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     telegram_id: Mapped[str] = mapped_column(String(200))
     username: Mapped[Optional[str]] = mapped_column(String(150))
+    name: Mapped[str] = mapped_column(String(150))
+    phone_number: Mapped[str] = mapped_column(String(20))
     rubies: Mapped[int] = mapped_column(default=0)
     identifier: Mapped[str] = mapped_column(String(6), unique=True)
     subscription_status: Mapped[bool] = mapped_column(Boolean, default=False)
