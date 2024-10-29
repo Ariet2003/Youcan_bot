@@ -1,23 +1,20 @@
-from aiogram.enums import ParseMode
-from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart
+import re
+from datetime import datetime
 from aiogram import F, Router
-from app.database import requests as rq
+from aiogram.filters import CommandStart
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-import app.keyboards as kb
-import app.states as st
+from app.database import requests as rq
+import app.register.registerKeyboards as kb
+import app.register.registerStates as st
+from app.users.admin.adminHandlers import admin_account
+from app.users.user.userHandlers import user_account
+from app.utils import sent_message_add_screen_ids
 
 router = Router()
 
-# Dictionary for storing message IDs
-sent_message_add_screen_ids = {
-    'bot_messages': [],
-    'user_messages': []
-}
-
 # Function to delete previous messages
 async def delete_previous_messages(message: Message):
-    # Delete all user messages except "/start"
     for msg_id in sent_message_add_screen_ids['user_messages']:
         try:
             if msg_id != message.message_id or message.text != "/start":
@@ -26,7 +23,6 @@ async def delete_previous_messages(message: Message):
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
     sent_message_add_screen_ids['user_messages'].clear()
 
-    # Delete all bot messages
     for msg_id in sent_message_add_screen_ids['bot_messages']:
         try:
             await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
@@ -34,19 +30,17 @@ async def delete_previous_messages(message: Message):
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
     sent_message_add_screen_ids['bot_messages'].clear()
 
+
 # Start
 @router.message(CommandStart())
 async def start(message: Message, state: FSMContext):
     user_tg_id = str(message.from_user.id)
-
-    # Check if user is an administrator
     is_admin = await rq.check_admin(user_tg_id)
 
     if is_admin:
         await admin_account(message, state)
     else:
         is_user = await rq.check_user(user_tg_id)
-
         if is_user:
             await user_account(message, state)
         else:
@@ -57,6 +51,8 @@ async def start(message: Message, state: FSMContext):
             await state.set_state(st.RegisterStates.language)
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
+
+# Language selection
 @router.callback_query(F.data == 'kg')
 async def get_name_kg(callback_query: CallbackQuery, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
@@ -64,6 +60,7 @@ async def get_name_kg(callback_query: CallbackQuery, state: FSMContext):
     sent_message = await callback_query.message.answer(text="Аты-жөнүңүздү жазыңыз(ФИО)")
     await state.set_state(st.RegisterStates.name_kg)
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
 
 @router.callback_query(F.data == 'ru')
 async def get_name_ru(callback_query: CallbackQuery, state: FSMContext):
@@ -73,42 +70,14 @@ async def get_name_ru(callback_query: CallbackQuery, state: FSMContext):
     await state.set_state(st.RegisterStates.name_ru)
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
-@router.message(st.RegisterStates.phone_number_kg)
-async def finish_register_kg(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
-    user_tg_id = str(message.from_user.id)
-    user_tg_username = str(message.from_user.username)
 
-    state_data = await state.get_data()
-    name = state_data.get('name_kg')
+# Function to validate phone number format
+async def validity_check_phone_number(phone_number: str) -> bool:
+    pattern = r'^\+996\d{9}$'
+    return bool(re.match(pattern, phone_number))
 
-    phone_number = message.text
-    identifier = user_tg_id
 
-    await rq.set_user(user_tg_id, user_tg_username, name, identifier, "kg", phone_number)
-
-    await user_account(message, state)
-    await state.clear()
-
-@router.message(st.RegisterStates.phone_number_ru)
-async def finish_register_ru(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
-    user_tg_id = str(message.from_user.id)
-    user_tg_username = str(message.from_user.username)
-
-    state_data = await state.get_data()
-    name = state_data.get('name_ru')
-
-    phone_number = message.text
-    identifier = user_tg_id
-
-    await rq.set_user(user_tg_id, user_tg_username, name, identifier, "ru", phone_number)
-
-    await user_account(message, state)
-    await state.clear()
-
+# Process user information after name input
 @router.message(st.RegisterStates.name_kg)
 async def get_number_kg(message: Message, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
@@ -118,6 +87,7 @@ async def get_number_kg(message: Message, state: FSMContext):
     sent_message = await message.answer(text="Телефон номериңизди жөнөтүңүз. Үлгү: +996700123456")
     await state.set_state(st.RegisterStates.phone_number_kg)
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
 
 @router.message(st.RegisterStates.name_ru)
 async def get_number_ru(message: Message, state: FSMContext):
@@ -129,14 +99,51 @@ async def get_number_ru(message: Message, state: FSMContext):
     await state.set_state(st.RegisterStates.phone_number_ru)
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
-async def user_account(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
-    sent_message = await message.answer(text="Личный кабинет пользователя")
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
-async def admin_account(message: Message, state: FSMContext):
+# Process phone number and finalize registration for both languages
+async def process_phone_number(message: Message, state: FSMContext, lang: str):
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
-    sent_message = await message.answer(text="Личный кабинет админа")
+
+    phone_number = message.text
+    is_valid = await validity_check_phone_number(phone_number)
+
+    if is_valid:
+        user_tg_id = str(message.from_user.id)
+        user_tg_username = str(message.from_user.username)
+        state_data = await state.get_data()
+        name = state_data.get(f'name_{lang}')
+        identifier = user_tg_id
+
+        await rq.set_user(user_tg_id, user_tg_username, name, identifier, lang, phone_number)
+        await user_account(message, state)
+        await state.clear()
+    else:
+        sent_message = await message.answer(
+            text="Кечиресиз, туура эмес формат. Үлгү: +996700123456" if lang == 'kg'
+            else "Извините, неверный формат. Пример: +996700123456"
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.message(st.RegisterStates.phone_number_kg)
+async def finish_register_kg(message: Message, state: FSMContext):
+    await process_phone_number(message, state, "kg")
+
+
+@router.message(st.RegisterStates.phone_number_ru)
+async def finish_register_ru(message: Message, state: FSMContext):
+    await process_phone_number(message, state, "ru")
+
+# Function to check message format
+def validate_loginadmin_command(text: str) -> bool:
+    current_time = datetime.now()
+    expected_suffix = f"{current_time.strftime('%d%H%M')}"
+    return text.startswith('loginadmin') and text[10:] == expected_suffix
+
+@router.message(F.text.func(validate_loginadmin_command))
+async def handle_loginadmin(message: Message):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    sent_message = await message.answer("Доступ к admin-аккаунту получен!")
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)

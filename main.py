@@ -1,6 +1,6 @@
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
-from app.handlers import router
+from app.register.registerHandlers import router
 from app.database.models import async_main # Если бд
 import asyncio
 import os

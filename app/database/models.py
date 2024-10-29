@@ -95,7 +95,9 @@ class Admin(Base):
     admin_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     telegram_id: Mapped[str] = mapped_column(String(200))
     username: Mapped[str] = mapped_column(String(150))
+    status: Mapped[str] = mapped_column(String(50), default="active")
     created_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
 class Statistic(Base):
     __tablename__ = 'statistics'
