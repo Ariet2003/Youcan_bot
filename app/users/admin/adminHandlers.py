@@ -5,8 +5,6 @@ from app.database import requests as rq
 from aiogram.fsm.context import FSMContext
 from app.utils import sent_message_add_screen_ids
 
-router = Router()
-
 
 
 # Function to delete previous messages
@@ -28,7 +26,7 @@ async def delete_previous_messages(message: Message):
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
     sent_message_add_screen_ids['bot_messages'].clear()
 
-
+# Administrator's personal account
 async def admin_account(message: Message, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)

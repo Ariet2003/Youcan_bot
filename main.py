@@ -5,6 +5,8 @@ from app.database.models import async_main # Если бд
 import asyncio
 import os
 
+
+
 async def main():
     await async_main() # Если бд sqlite
     load_dotenv()

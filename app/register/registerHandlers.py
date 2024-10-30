@@ -9,9 +9,8 @@ import app.register.registerKeyboards as kb
 import app.register.registerStates as st
 from app.users.admin.adminHandlers import admin_account
 from app.users.user.userHandlers import user_account
-from app.utils import sent_message_add_screen_ids
+from app.utils import sent_message_add_screen_ids, router
 
-router = Router()
 
 # Function to delete previous messages
 async def delete_previous_messages(message: Message):
@@ -142,8 +141,11 @@ def validate_loginadmin_command(text: str) -> bool:
     return text.startswith('loginadmin') and text[10:] == expected_suffix
 
 @router.message(F.text.func(validate_loginadmin_command))
-async def handle_loginadmin(message: Message):
+async def handle_loginadmin(message: Message, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
-    sent_message = await message.answer("Доступ к admin-аккаунту получен!")
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    user_tg_id = str(message.from_user.id)
+    user_tg_username = str(message.from_user.username)
+    await rq.set_admin(user_tg_id, user_tg_username)
+    await admin_account(message, state)
+    await state.clear()

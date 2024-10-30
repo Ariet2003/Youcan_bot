@@ -13,7 +13,7 @@ def get_current_time():
     tz = pytz.timezone('Asia/Bishkek')
     return datetime.now(tz)
 
-# Request to check if a user is in the database
+# Request to check if a user is in the database, if not, then add
 async def set_user(telegram_id: str, username: str, name: str, identifier: str, language: str, phone_number: str) -> None:
     async with async_session() as session:
         user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
@@ -26,8 +26,8 @@ async def set_user(telegram_id: str, username: str, name: str, identifier: str, 
                 identifier=identifier,
                 language=language,
                 phone_number=phone_number,
-                created_at=get_current_time(),  # Используем текущее время
-                updated_at=get_current_time()   # Используем текущее время
+                created_at=get_current_time(),
+                updated_at=get_current_time()
             ))
             await session.commit()
 
@@ -51,3 +51,38 @@ async def check_user(telegram_id: str) -> bool:
         user = result.scalar_one_or_none()
 
         return user is not None
+
+# Request to check if an admin is in the database, if not, then add
+async def set_admin(telegram_id: str, username: str) -> None:
+    async with async_session() as session:
+        admin = await session.scalar(select(Admin).where(Admin.telegram_id == telegram_id))
+
+        if not admin:
+            new_admin = Admin(
+                telegram_id=telegram_id,
+                username=username,
+                created_at=get_current_time(),
+                updated_at=get_current_time()
+            )
+            session.add(new_admin)
+            await session.commit()
+
+# Request to get user language
+async def get_user_language(telegram_id: str) -> Optional[str]:
+    async with async_session() as session:
+        result = await session.execute(
+            select(User.language).where(User.telegram_id == telegram_id)
+        )
+        language = result.scalar_one_or_none()
+
+        return language
+
+# Request to get user name
+async def get_user_name(telegram_id: str) -> Optional[str]:
+    async with async_session() as session:
+        result = await session.execute(
+            select(User.name).where(User.telegram_id == telegram_id)
+        )
+        name = result.scalar_one_or_none()
+
+        return name
