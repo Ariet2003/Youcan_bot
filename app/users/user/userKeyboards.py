@@ -18,3 +18,17 @@ profile_button_ru = InlineKeyboardMarkup(inline_keyboard=[
      InlineKeyboardButton(text="⚔️ Дуэль", callback_data='duel_ru')],
     [InlineKeyboardButton(text="⚙️ Настройки", callback_data='settings_ru'),
      InlineKeyboardButton(text="🎟️ Доступ к VIP", callback_data='vip_ru')]])
+
+# Buttons for selecting an item in Russion
+subjects_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📋 Аналогия", callback_data='analogy_ru'),
+     InlineKeyboardButton(text="📜 Грамматика", callback_data='grammar_ru')],
+    [InlineKeyboardButton(text="⬅️ Назад", callback_data='to_home_ru')]
+])
+
+# Buttons for selecting an item in Kyrgyz
+subjects_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📋 Аналогия", callback_data='analogy_kg'),
+     InlineKeyboardButton(text="📜 Грамматика", callback_data='grammar_kg')],
+    [InlineKeyboardButton(text="⬅️ Артка", callback_data='to_home_kg')]
+])
