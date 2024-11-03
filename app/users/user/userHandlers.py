@@ -3,6 +3,8 @@ from aiogram.filters import CommandStart, Command
 from aiogram import F, Router
 from app.database import requests as rq
 from aiogram.fsm.context import FSMContext
+
+from app.users.user.scripts import is_valid_analogy, is_kyrgyz_words, is_kyrgyz_sentence
 from app.utils import sent_message_add_screen_ids, router
 from app.users.user import userStates as st
 import app.users.user.userKeyboards as kb
@@ -132,67 +134,99 @@ async def write_analogy_question_kg(callback_query: CallbackQuery, state: FSMCon
 @router.message(st.CreatAnalogyQuestionsKG.create_question_kg)
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
-    await state.update_data(question_text=question_text, options={})
-
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
 
-    sent_message = await message.answer(
-        f"*Негизги жуп:* {question_text}\n\n"
-        f"*A) ............................*\n"
-        f"Б) ............................\n"
-        f"В) ............................\n"
-        f"Г) ............................\n\n"
-        "Суроонун жообунун 'A' вариантын жазыңыз:",
-        parse_mode=ParseMode.MARKDOWN
-    )
-    await state.set_state(st.CreatAnalogyQuestionsKG.create_option_a_kg)
+    if message.text == "/start":
+        await user_account(message, state)
+        return
+
+    if await is_valid_analogy(question_text):
+        if await is_kyrgyz_words(question_text):
+            await state.update_data(question_text=question_text, options={})
+
+            sent_message = await message.answer(
+                f"*Негизги жуп:* {question_text}\n\n"
+                f"*A) ............................*\n"
+                f"Б) ............................\n"
+                f"В) ............................\n"
+                f"Г) ............................\n\n"
+                "Суроонун жообунун 'A' вариантын жазыңыз:",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.set_state(st.CreatAnalogyQuestionsKG.create_option_a_kg)
+        else:
+            sent_message = await message.answer_photo(
+                photo=utils.pictureForTheEditAnAnalogyKG,
+                caption='Сиз жазган негизги жупта ката бар, же кыргыз тилинде эмес. Сураныч, туура жана кыргыз тилинде гана жазыңыз\nҮлгү: _Алма : Жемиш_',
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.set_state(st.CreatAnalogyQuestionsKG.create_question_kg)
+    else:
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnAnalogyKG,
+            caption='Негизги жуптун берилишин туура эмес жаздыңыз. Форматтагыдай жазыңыз\nҮлгү: _Алма : Жемиш_',
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await state.set_state(st.CreatAnalogyQuestionsKG.create_question_kg)
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 
 # General handler for options A, B, V, and G
 async def get_option_analogy_kg(message: Message, state: FSMContext, option_key: str, next_state):
-    data = await state.get_data()
-    options = data.get('options', {})
-    options[option_key] = message.text
-    await state.update_data(options=options)
-
     # Сохранение сообщения пользователя для удаления позже
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
-
     # Определение текста для вывода
-    option_text = {
+    option_texts = {
         'A': 'Б',
         'B': 'В',
         'V': 'Г',
         'G': "Суроонун жообунун туура вариантын тандыңыз"
     }
+    if await is_valid_analogy(message.text):
+        if await is_kyrgyz_words(message.text):
+            data = await state.get_data()
+            options = data.get('options', {})
+            options[option_key] = message.text
+            await state.update_data(options=options)
 
-    # Проверка, если вариант "G", чтобы отобразить итоговое сообщение
-    if option_key == 'G':
-        sent_message = await message.answer(
-            f"*Негизги жуп:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"{option_text[option_key]}",
-            reply_markup=kb.option_buttons_for_creating_an_analogy_kg,
-            parse_mode=ParseMode.MARKDOWN
-        )
+            # Проверка, если вариант "G", чтобы отобразить итоговое сообщение
+            if option_key == 'G':
+                sent_message = await message.answer(
+                    f"*Негизги жуп:* {data['question_text']}\n\n"
+                    f"A) {options.get('A', '............................')}\n"
+                    f"Б) {options.get('B', '............................')}\n"
+                    f"В) {options.get('V', '............................')}\n"
+                    f"Г) {options.get('G', '............................')}\n\n"
+                    f"{option_texts[option_key]}",
+                    reply_markup=kb.option_buttons_for_creating_an_analogy_kg,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                # Сообщение для случаев A, B, V, когда требуется ввод следующего варианта
+                sent_message = await message.answer(
+                    f"*Негизги жуп:* {data['question_text']}\n\n"
+                    f"A) {options.get('A', '............................')}\n"
+                    f"Б) {options.get('B', '............................')}\n"
+                    f"В) {options.get('V', '............................')}\n"
+                    f"Г) {options.get('G', '............................')}\n\n"
+                    f"Суроонун жообунун '{option_texts[option_key]}' вариантын жазыңыз:",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                await state.set_state(next_state)
+        else:
+            sent_message = await message.answer_photo(
+                photo=utils.pictureForTheEditAnAnalogyKG,
+                caption=f'Сиз жазган вариант кыргыз тилинде эмес. Кыргыз тилиндеги сөздөрдү колдонуп, бул вариантты кайра жазыңыз.',
+                parse_mode=ParseMode.MARKDOWN
+            )
     else:
-        # Сообщение для случаев A, B, V, когда требуется ввод следующего варианта
-        sent_message = await message.answer(
-            f"*Негизги жуп:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"Суроонун жообунун '{option_text[option_key]}' вариантын жазыңыз:",
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnAnalogyKG,
+            caption=f'Сиз жазган вариант туура эмес форматта. Көрсөтүлгөн форматтагыдай кылып бул вариантты кайра жазыңыз. Үлгү боюнча жазыңыз: _Талас : Шаар_',
             parse_mode=ParseMode.MARKDOWN
         )
-        await state.set_state(next_state)
 
     # Сохранение отправленного ботом сообщения для удаления позже
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -295,6 +329,10 @@ async def write_analogy_question_ru(callback_query: CallbackQuery, state: FSMCon
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
     await state.update_data(question_text=question_text, options={})
+
+    if message.text == "/start":
+        await user_account(message, state)
+        return
 
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
@@ -437,31 +475,39 @@ async def write_grammar_question_kg(callback_query: CallbackQuery, state: FSMCon
 @router.message(st.CreatGrammarQuestionsKG.create_question_kg)
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
-    await state.update_data(question_text=question_text, options={})
-
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
 
-    sent_message = await message.answer(
-        f"*Суроо:* {question_text}\n\n"
-        f"*A) ............................*\n"
-        f"Б) ............................\n"
-        f"В) ............................\n"
-        f"Г) ............................\n\n"
-        "Суроонун жообунун 'A' вариантын жазыңыз:",
-        parse_mode=ParseMode.MARKDOWN
-    )
-    await state.set_state(st.CreatGrammarQuestionsKG.create_option_a_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    if message.text == "/start":
+        await user_account(message, state)
+        return
 
+    if await is_kyrgyz_sentence(question_text) == "Туура":
+        await state.update_data(question_text=question_text, options={})
+
+        sent_message = await message.answer(
+            f"*Суроо:* {question_text}\n\n"
+            f"*A) ............................*\n"
+            f"Б) ............................\n"
+            f"В) ............................\n"
+            f"Г) ............................\n\n"
+            "Суроонун жообунун 'A' вариантын жазыңыз:",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await state.set_state(st.CreatGrammarQuestionsKG.create_option_a_kg)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        err_sentences = await is_kyrgyz_sentence(question_text)
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnGrammerKG,
+            caption=f'_{err_sentences}._\nТууралап, суроонун берилишин кайра жазыңыз:',
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await state.set_state(st.CreatGrammarQuestionsKG.create_question_kg)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 # General handler for options A, B, V, and G
 async def get_option_grammar_kg(message: Message, state: FSMContext, option_key: str, next_state):
-    data = await state.get_data()
-    options = data.get('options', {})
-    options[option_key] = message.text
-    await state.update_data(options=options)
-
     # Сохранение сообщения пользователя для удаления позже
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
@@ -474,30 +520,43 @@ async def get_option_grammar_kg(message: Message, state: FSMContext, option_key:
         'G': "Суроонун жообунун туура вариантын тандыңыз"
     }
 
-    # Проверка, если вариант "G", чтобы отобразить итоговое сообщение
-    if option_key == 'G':
-        sent_message = await message.answer(
-            f"*Суроо:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"{option_text[option_key]}",
-            reply_markup=kb.option_buttons_for_creating_a_grammar_kg,
-            parse_mode=ParseMode.MARKDOWN
-        )
+    if await is_kyrgyz_sentence(message.text) == "Туура":
+        data = await state.get_data()
+        options = data.get('options', {})
+        options[option_key] = message.text
+        await state.update_data(options=options)
+
+        # Проверка, если вариант "G", чтобы отобразить итоговое сообщение
+        if option_key == 'G':
+            sent_message = await message.answer(
+                f"*Суроо:* {data['question_text']}\n\n"
+                f"A) {options.get('A', '............................')}\n"
+                f"Б) {options.get('B', '............................')}\n"
+                f"В) {options.get('V', '............................')}\n"
+                f"Г) {options.get('G', '............................')}\n\n"
+                f"{option_text[option_key]}",
+                reply_markup=kb.option_buttons_for_creating_a_grammar_kg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Сообщение для случаев A, B, V, когда требуется ввод следующего варианта
+            sent_message = await message.answer(
+                f"*Суроо:* {data['question_text']}\n\n"
+                f"A) {options.get('A', '............................')}\n"
+                f"Б) {options.get('B', '............................')}\n"
+                f"В) {options.get('V', '............................')}\n"
+                f"Г) {options.get('G', '............................')}\n\n"
+                f"Суроонун жообунун '{option_text[option_key]}' вариантын жазыңыз:",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.set_state(next_state)
     else:
-        # Сообщение для случаев A, B, V, когда требуется ввод следующего варианта
-        sent_message = await message.answer(
-            f"*Суроо:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"Суроонун жообунун '{option_text[option_key]}' вариантын жазыңыз:",
+        err_sentences = await is_kyrgyz_sentence(message.text)
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnGrammerKG,
+            caption=f'_{err_sentences}._\nТууралап, варианттын берилишин кайра жазыңыз:',
             parse_mode=ParseMode.MARKDOWN
         )
-        await state.set_state(next_state)
 
     # Сохранение отправленного ботом сообщения для удаления позже
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -586,6 +645,10 @@ async def write_grammar_question_ru(callback_query: CallbackQuery, state: FSMCon
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
     await state.update_data(question_text=question_text, options={})
+
+    if message.text == "/start":
+        await user_account(message, state)
+        return
 
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
