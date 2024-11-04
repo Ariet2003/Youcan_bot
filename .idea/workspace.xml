@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="864c11c3-89ae-451d-b617-aa10784d583b" name="Changes" comment="All folders and files are created and launched">
-      <change afterPath="$PROJECT_DIR$/app/users/user/scripts.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/users/user/scripts.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/scripts.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/users/user/userHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userHandlers.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
     </list>
@@ -60,7 +60,7 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/User/PycharmProjects/Primer/Orfo",
+    "last_opened_file_path": "C:/Users/User/PycharmProjects/Primer/CheckRussianWord",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -170,7 +170,8 @@
       <workItem from="1730484887311" duration="1453000" />
       <workItem from="1730531445043" duration="1448000" />
       <workItem from="1730550940058" duration="3472000" />
-      <workItem from="1730620307830" duration="13507000" />
+      <workItem from="1730620307830" duration="16573000" />
+      <workItem from="1730703579418" duration="5156000" />
     </task>
     <task id="LOCAL-00001" summary="All folders and files are created and launched">
       <option name="closed" value="true" />
@@ -246,18 +247,7 @@
     <MESSAGE value="All folders and files are created and launched" />
     <option name="LAST_COMMIT_MESSAGE" value="All folders and files are created and launched" />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/users/user/userHandlers.py</url>
-          <line>509</line>
-          <option name="timeStamp" value="2" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
-  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1730636635630" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1730709622407" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

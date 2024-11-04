@@ -15,12 +15,10 @@ async def is_valid_analogy(analogy: str) -> bool:
 
     return bool(word1) and bool(word2)
 
-
-# Request to check the spelling of Kyrgyz words
+# Script for spell checking Kyrgyz words
 async def is_kyrgyz_words(analogy: str) -> bool:
     url = "https://tamgasoft.kg/orfo/json.php"
 
-    # Request headers
     headers = {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
@@ -29,45 +27,37 @@ async def is_kyrgyz_words(analogy: str) -> bool:
         "Origin": "https://tamgasoft.kg",
     }
 
-    # Регулярное выражение для нахождения кириллических слов с учётом разделителей : - и пробелов
     words = re.findall(r'[а-яА-ЯёЁөӨңҢүҮ]+', analogy)
 
     for word in words:
-        # Данные для отправки
         data = {
-            "jsonData": f'{{"word":"{word}","method":"checkWord"}}'  # Формат данных как строка JSON
+            "jsonData": f'{{"word":"{word.lower()}","method":"checkWord"}}'  # Формат данных как строка JSON
         }
 
-        # Отправка POST-запроса
         response = requests.post(url, headers=headers, data=data)
 
-        # Проверка и вывод результата
         if response.status_code == 200:
-            result = response.json()  # Попытка разобрать ответ как JSON
-            if result == 0:  # Предполагаем, что JSON содержит поле 'success'
+            result = response.json()
+            if result == 0:
                 return False
         else:
             return False
-
     return True
 
-
+# # Script for spell checking Kyrgyz sentences
 async def is_kyrgyz_sentence(sentence):
     url = "https://tamgasoft.kg/orfo/tinymce/jscripts/tiny_mce/plugins/spellchecker/rpc.php"
 
-    # Разделяем предложение на слова с учетом кириллических букв
-    words = re.findall(r'[а-яА-ЯёЁөӨңҢүҮ]+', sentence)
+    words = [word.lower() for word in re.findall(r'[а-яА-ЯёЁөӨңҢүҮ]+', sentence)]
     if not words:
-        return "Нет слов для проверки."
+        return "Сөз жазылган жок"
 
-    # Данные для отправки
     data = {
         "id": "c0",
         "method": "checkWords",
         "params": ["ky", words]
     }
 
-    # Заголовки для запроса
     headers = {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
@@ -75,22 +65,69 @@ async def is_kyrgyz_sentence(sentence):
         "Referer": "https://tamgasoft.kg/orfo/index.php?mode=text",
     }
 
-    # Отправка POST-запроса
     response = requests.post(url, headers=headers, json=data)
 
-    # Проверка и вывод результата
     if response.status_code == 200:
         try:
             result = response.json()
-            # Получаем список ошибочных слов
             incorrect_words = result.get("result", [])
             if "NO_ERROR" in incorrect_words:
-                return "Туура"  # Все слова правильные
-            elif incorrect_words:  # Если есть другие ошибки
+                return "Туура"
+            elif incorrect_words:
                 return "Бул сөздөр туура эмес жазылган: " + ", ".join(incorrect_words)
             else:
-                return "Туура"  # Все слова правильные
+                return "Туура"
         except json.JSONDecodeError:
-            return "Ответ не в формате JSON."
+            return "Жооп JSON форматында эмес."
     else:
-        return f"Ошибка при запросе: {response.status_code}"
+        return f"Боттон ката кетти: {response.status_code}"
+
+# Script for spell checking Russian words
+async def is_russian_words(analogy: str) -> bool:
+    words = re.split(r'[:\- ]+', analogy)
+
+    url = "https://speller.yandex.net/services/spellservice.json/checkText"
+
+    for word in words:
+        if not word:
+            continue
+
+        params = {
+            "text": word,
+            "lang": "ru",
+            "options": 0,
+            "format": "plain"
+        }
+
+        response = requests.get(url, params=params)
+
+        if response.status_code == 200:
+            errors = response.json()
+            if errors:
+                return False
+        else:
+            return False
+    return True
+
+# Script for spell checking Russian sentence
+async def is_russian_sentence(sentence):
+    params = {
+        "text": sentence,
+        "lang": "ru",
+        "options": 0,
+        "format": "plain"
+    }
+
+    url = "https://speller.yandex.net/services/spellservice.json/checkText"
+
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        errors = response.json()
+        if errors:
+            for error in errors:
+               return f"Неправильное слово: {error['word']}"
+        else:
+            return "Правильно"
+    else:
+        return f"Ошибка при выполнении запроса: {response.status_code}"

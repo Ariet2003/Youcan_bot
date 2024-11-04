@@ -4,7 +4,8 @@ from aiogram import F, Router
 from app.database import requests as rq
 from aiogram.fsm.context import FSMContext
 
-from app.users.user.scripts import is_valid_analogy, is_kyrgyz_words, is_kyrgyz_sentence
+from app.users.user.scripts import is_valid_analogy, is_kyrgyz_words, is_kyrgyz_sentence, is_russian_words, \
+    is_russian_sentence
 from app.utils import sent_message_add_screen_ids, router
 from app.users.user import userStates as st
 import app.users.user.userKeyboards as kb
@@ -328,67 +329,98 @@ async def write_analogy_question_ru(callback_query: CallbackQuery, state: FSMCon
 @router.message(st.CreatAnalogyQuestionsRU.create_question_ru)
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
-    await state.update_data(question_text=question_text, options={})
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
 
     if message.text == "/start":
         await user_account(message, state)
         return
 
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    if await is_valid_analogy(question_text):
+        if await is_russian_words(question_text):
+            await state.update_data(question_text=question_text, options={})
 
-    sent_message = await message.answer(
-        f"*Основная пара:* {question_text}\n\n"
-        f"*A) ............................*\n"
-        f"Б) ............................\n"
-        f"В) ............................\n"
-        f"Г) ............................\n\n"
-        "Введите вариант ответа 'A':",
-        parse_mode=ParseMode.MARKDOWN
-    )
-    await state.set_state(st.CreatAnalogyQuestionsRU.create_option_a_ru)
+            sent_message = await message.answer(
+                f"*Основная пара:* {question_text}\n\n"
+                f"*A) ............................*\n"
+                f"Б) ............................\n"
+                f"В) ............................\n"
+                f"Г) ............................\n\n"
+                "Введите вариант ответа 'A':",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.set_state(st.CreatAnalogyQuestionsRU.create_option_a_ru)
+        else:
+            sent_message = await message.answer_photo(
+                photo=utils.pictureForTheEditAnAnalogyRU,
+                caption='Вы написали основную пару неверно или не на русском языке. Пожалуйста, введите правильно и только на русском языке\nПример: _Яблоко : Фрукт_',
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.set_state(st.CreatAnalogyQuestionsRU.create_question_ru)
+    else:
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnAnalogyRU,
+            caption='Вы написали основную пару неверно. Пожалуйста, следуйте формату\nПример: _Яблоко : Фрукт_',
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await state.set_state(st.CreatAnalogyQuestionsRU.create_question_ru)
+
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 
 # General handler for options A, B, V, and G in Russian
 async def get_option_analogy_ru(message: Message, state: FSMContext, option_key: str, next_state):
-    data = await state.get_data()
-    options = data.get('options', {})
-    options[option_key] = message.text
-    await state.update_data(options=options)
-
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
+    data = await state.get_data()
+    options = data.get('options', {})
 
-    option_text = {
-        'A': 'Б',
-        'B': 'В',
-        'V': 'Г',
-        'G': "Выберите правильный ответ"
-    }
+    if await is_valid_analogy(message.text):
+        if await is_russian_words(message.text):
+            options[option_key] = message.text
+            await state.update_data(options=options)
 
-    if option_key == 'G':
-        sent_message = await message.answer(
-            f"*Основная пара:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"{option_text[option_key]}",
-            reply_markup=kb.option_buttons_for_creating_an_analogy_ru,
-            parse_mode=ParseMode.MARKDOWN
-        )
+            option_text = {
+                'A': 'Б',
+                'B': 'В',
+                'V': 'Г',
+                'G': "Выберите правильный ответ"
+            }
+
+            if option_key == 'G':
+                sent_message = await message.answer(
+                    f"*Основная пара:* {data['question_text']}\n\n"
+                    f"A) {options.get('A', '............................')}\n"
+                    f"Б) {options.get('B', '............................')}\n"
+                    f"В) {options.get('V', '............................')}\n"
+                    f"Г) {options.get('G', '............................')}\n\n"
+                    f"{option_text[option_key]}",
+                    reply_markup=kb.option_buttons_for_creating_an_analogy_ru,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                sent_message = await message.answer(
+                    f"*Основная пара:* {data['question_text']}\n\n"
+                    f"A) {options.get('A', '............................')}\n"
+                    f"Б) {options.get('B', '............................')}\n"
+                    f"В) {options.get('V', '............................')}\n"
+                    f"Г) {options.get('G', '............................')}\n\n"
+                    f"Введите вариант ответа '{option_text[option_key]}':",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                await state.set_state(next_state)
+        else:
+            sent_message = await message.answer_photo(
+                photo=utils.pictureForTheEditAnAnalogyRU,
+                caption=f'Вы написали вариант не на русском языке. Пожалуйста, используйте слова на русском.',
+                parse_mode=ParseMode.MARKDOWN
+            )
     else:
-        sent_message = await message.answer(
-            f"*Основная пара:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"Введите вариант ответа '{option_text[option_key]}':",
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnAnalogyRU,
+            caption=f'Вы написали вариант неверно. Пожалуйста, следуйте формату. Пример: _Город : Страна_',
             parse_mode=ParseMode.MARKDOWN
         )
-        await state.set_state(next_state)
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
@@ -429,7 +461,7 @@ async def get_option_g_ru(message: Message, state: FSMContext):
 # Handler for selecting the correct answer in Russian
 @router.callback_query(F.data.in_(
     ['ru_creating_an_analogy_a', 'ru_creating_an_analogy_b', 'ru_creating_an_analogy_v', 'ru_creating_an_analogy_g']))
-async def get_correct_option_ru(callback_query: CallbackQuery, state: FSMContext):
+async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     option_key = callback_query.data.split('_')[-1].upper()
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
@@ -444,12 +476,11 @@ async def get_correct_option_ru(callback_query: CallbackQuery, state: FSMContext
         f"{'✅ ' if option_key == 'B' else ''}Б: {options['B']}\n"
         f"{'✅ ' if option_key == 'V' else ''}В: {options['V']}\n"
         f"{'✅ ' if option_key == 'G' else ''}Г: {options['G']}\n\n"
-        f"Вы выбрали правильный вариант, теперь отправьте на проверку.",
+        f"Вы выбрали правильный ответ, теперь отправьте на проверку.",
         reply_markup=kb.option_buttons_for_creating_an_analogy_ru,
         parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
-
 
 
 ##############################################################
@@ -653,18 +684,27 @@ async def get_question_text(message: Message, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
     await delete_previous_messages(message)
 
-    sent_message = await message.answer(
-        f"*Вопрос:* {question_text}\n\n"
-        f"*A) ............................*\n"
-        f"Б) ............................\n"
-        f"В) ............................\n"
-        f"Г) ............................\n\n"
-        "Введите ответ для варианта 'A':",
-        parse_mode=ParseMode.MARKDOWN
-    )
-    await state.set_state(st.CreatGrammarQuestionsRU.create_option_a_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
-
+    if await is_russian_sentence(question_text) == "Правильно":
+        sent_message = await message.answer(
+            f"*Вопрос:* {question_text}\n\n"
+            f"*A) ............................*\n"
+            f"Б) ............................\n"
+            f"В) ............................\n"
+            f"Г) ............................\n\n"
+            "Введите ответ для варианта 'A':",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await state.set_state(st.CreatGrammarQuestionsRU.create_option_a_ru)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        err_sentences = await is_russian_sentence(question_text)
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnGrammerRU,
+            caption=f'_{err_sentences}._\nПожалуйста, исправьте и напишите вопрос заново:',
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await state.set_state(st.CreatGrammarQuestionsRU.create_question_ru)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 # General handler for options A, B, V, and G
 async def get_option_grammar_ru(message: Message, state: FSMContext, option_key: str, next_state):
@@ -683,28 +723,37 @@ async def get_option_grammar_ru(message: Message, state: FSMContext, option_key:
         'G': "Выберите правильный вариант"
     }
 
-    if option_key == 'G':
-        sent_message = await message.answer(
-            f"*Вопрос:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"{option_text[option_key]}",
-            reply_markup=kb.option_buttons_for_creating_a_grammar_ru,
-            parse_mode=ParseMode.MARKDOWN
-        )
+    if await is_russian_sentence(message.text) == "Правильно":
+        # Checking if it's the last option to display the final message
+        if option_key == 'G':
+            sent_message = await message.answer(
+                f"*Вопрос:* {data['question_text']}\n\n"
+                f"A) {options.get('A', '............................')}\n"
+                f"Б) {options.get('B', '............................')}\n"
+                f"В) {options.get('V', '............................')}\n"
+                f"Г) {options.get('G', '............................')}\n\n"
+                f"{option_text[option_key]}",
+                reply_markup=kb.option_buttons_for_creating_a_grammar_ru,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            sent_message = await message.answer(
+                f"*Вопрос:* {data['question_text']}\n\n"
+                f"A) {options.get('A', '............................')}\n"
+                f"Б) {options.get('B', '............................')}\n"
+                f"В) {options.get('V', '............................')}\n"
+                f"Г) {options.get('G', '............................')}\n\n"
+                f"Введите ответ для варианта '{option_text[option_key]}':",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.set_state(next_state)
     else:
-        sent_message = await message.answer(
-            f"*Вопрос:* {data['question_text']}\n\n"
-            f"A) {options.get('A', '............................')}\n"
-            f"Б) {options.get('B', '............................')}\n"
-            f"В) {options.get('V', '............................')}\n"
-            f"Г) {options.get('G', '............................')}\n\n"
-            f"Введите ответ для варианта '{option_text[option_key]}':",
+        err_sentences = await is_russian_sentence(message.text)
+        sent_message = await message.answer_photo(
+            photo=utils.pictureForTheEditAnGrammerRU,
+            caption=f'_{err_sentences}._\nПожалуйста, исправьте и напишите вариант заново:',
             parse_mode=ParseMode.MARKDOWN
         )
-        await state.set_state(next_state)
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
