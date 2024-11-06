@@ -43,6 +43,7 @@ class Question(Base):
     content: Mapped[str] = mapped_column(String(1000))
     options: Mapped[dict] = mapped_column(JSON)
     correct_option: Mapped[str] = mapped_column(String(5))
+    status: Mapped[str] = mapped_column(String(50), default="pending")
     explanation: Mapped[Optional[str]] = mapped_column(String(4400), nullable=True)
     created_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
