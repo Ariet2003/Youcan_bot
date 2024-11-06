@@ -6,6 +6,7 @@ from app.database.models import async_session
 from app.database.models import User, Admin, Question
 from sqlalchemy import select, delete
 from datetime import datetime
+from sqlalchemy import update
 import pytz
 
 # We get the current time in the required time zone
@@ -88,7 +89,7 @@ async def get_user_name(telegram_id: str) -> Optional[str]:
         return name
 
 # Write analogy questions to the DB
-async def write_analogy(user_id: int, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending"):
+async def write_question(user_id: int, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending"):
     async with async_session() as session:
         async with session.begin():
             new_question = Question(
@@ -104,4 +105,15 @@ async def write_analogy(user_id: int, subject_id: int, content: str, option_a: s
                 created_at=get_current_time()
             )
             session.add(new_question)
+            await session.commit()
+
+# Update the number of rubies the user has
+async def add_rubies(telegram_id: str, rubies_amount: int):
+    async with async_session() as session:
+        async with session.begin():
+            await session.execute(
+                update(User)
+                .where(User.telegram_id == telegram_id)
+                .values(rubies=User.rubies + rubies_amount)
+            )
             await session.commit()

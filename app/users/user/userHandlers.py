@@ -294,7 +294,7 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         f"{'✅ ' if option_key == 'V' else ''}В: {options['V']}\n"
         f"{'✅ ' if option_key == 'G' else ''}Г: {options['G']}\n\n"
         f"Туура вариантты тандадыңыз, эми текшерүүгө жөнөтүңүз.",
-        reply_markup=kb.option_buttons_for_creating_an_analogy_kg,
+        reply_markup=kb.option_buttons_for_creating_an_analogy_kg_finish,
         parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -495,7 +495,7 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         f"{'✅ ' if option_key == 'V' else ''}В: {options['V']}\n"
         f"{'✅ ' if option_key == 'G' else ''}Г: {options['G']}\n\n"
         f"Вы выбрали правильный ответ, теперь отправьте на проверку.",
-        reply_markup=kb.option_buttons_for_creating_an_analogy_ru,
+        reply_markup=kb.option_buttons_for_creating_an_analogy_ru_finish,
         parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -672,7 +672,7 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         f"{'✅ ' if option_key == 'V' else ''}В: {options['V']}\n"
         f"{'✅ ' if option_key == 'G' else ''}Г: {options['G']}\n\n"
         f"Туура вариантты тандадыңыз, эми текшерүүгө жөнөтүңүз.",
-        reply_markup=kb.option_buttons_for_creating_a_grammar_kg,
+        reply_markup=kb.option_buttons_for_creating_a_grammar_kg_finish,
         parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -846,13 +846,13 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         f"{'✅ ' if option_key == 'V' else ''}В: {options['V']}\n"
         f"{'✅ ' if option_key == 'G' else ''}Г: {options['G']}\n\n"
         f"Вы выбрали правильный вариант, теперь отправьте на проверку.",
-        reply_markup=kb.option_buttons_for_creating_a_grammar_ru,
+        reply_markup=kb.option_buttons_for_creating_a_grammar_ru_finish,
         parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 
-# Write analogy questions to the DB
+# Write kg analogy questions to the DB
 @router.callback_query(F.data == 'kg_send_an_analogy')
 async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
@@ -870,17 +870,108 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
     option_g = options.get('G', '')
 
     # Записываем вопрос в БД
-    await rq.write_analogy(
-        user_id=user_id,
-        subject_id=4,
-        content=question_text,
-        option_a=option_a,
-        option_b=option_b,
-        option_v=option_v,
-        option_g=option_g,
-        correct_option=correct_option,
-        status="pending"
-    )
+    await rq.write_question(user_id=user_id, subject_id=4, content=question_text, option_a=option_a, option_b=option_b,
+                            option_v=option_v, option_g=option_g, correct_option=correct_option, status="pending")
+    await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
 
-    sent_message = await callback_query.message.answer("Ваш вопрос успешно добавлен!")
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.picturePlusFiveRubin,
+        caption='Сиздин суроо кабыл алынды!'
+                '\n*+5 рубин* 💎 кошулду.',
+        reply_markup=kb.to_user_account_kg,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Write ru analogy questions to the DB
+@router.callback_query(F.data == 'ru_send_an_analogy')
+async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    data = await state.get_data()
+    question_text = data['question_text']
+    options = data['options']
+    user_id = callback_query.from_user.id
+    correct_option = data['correct_option']
+
+    option_a = options.get('A', '')
+    option_b = options.get('B', '')
+    option_v = options.get('V', '')
+    option_g = options.get('G', '')
+
+    # Записываем вопрос в БД
+    await rq.write_question(user_id=user_id, subject_id=3, content=question_text, option_a=option_a, option_b=option_b,
+                            option_v=option_v, option_g=option_g, correct_option=correct_option, status="pending")
+    await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.picturePlusFiveRubin,
+        caption='Ваш вопрос принят!'
+                '\n*+5 рубинов* 💎 добавлено.',
+        reply_markup=kb.to_user_account_ru,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Write ru grammar questions to the DB
+@router.callback_query(F.data == 'ru_send_an_grammar')
+async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    data = await state.get_data()
+    question_text = data['question_text']
+    options = data['options']
+    user_id = callback_query.from_user.id
+    correct_option = data['correct_option']
+
+    option_a = options.get('A', '')
+    option_b = options.get('B', '')
+    option_v = options.get('V', '')
+    option_g = options.get('G', '')
+
+    # Записываем вопрос в БД
+    await rq.write_question(user_id=user_id, subject_id=1, content=question_text, option_a=option_a, option_b=option_b,
+                            option_v=option_v, option_g=option_g, correct_option=correct_option, status="pending")
+    await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.picturePlusFiveRubin,
+        caption='Ваш вопрос принят!'
+                '\n*+5 рубинов* 💎 добавлено.',
+        reply_markup=kb.to_user_account_ru,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Write kg grammar questions to the DB
+@router.callback_query(F.data == 'kg_send_an_grammar')
+async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    data = await state.get_data()
+    question_text = data['question_text']
+    options = data['options']
+    user_id = callback_query.from_user.id
+    correct_option = data['correct_option']
+
+    option_a = options.get('A', '')
+    option_b = options.get('B', '')
+    option_v = options.get('V', '')
+    option_g = options.get('G', '')
+
+    # Записываем вопрос в БД
+    await rq.write_question(user_id=user_id, subject_id=2, content=question_text, option_a=option_a, option_b=option_b,
+                            option_v=option_v, option_g=option_g, correct_option=correct_option, status="pending")
+    await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.picturePlusFiveRubin,
+        caption='Сиздин суроо кабыл алынды!'
+                '\n*+5 рубин* 💎 кошулду.',
+        reply_markup=kb.to_user_account_kg,
+        parse_mode=ParseMode.MARKDOWN
+    )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)

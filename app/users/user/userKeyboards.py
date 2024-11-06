@@ -38,12 +38,28 @@ option_buttons_for_creating_an_analogy_kg = InlineKeyboardMarkup(inline_keyboard
     [InlineKeyboardButton(text="A", callback_data='kg_creating_an_analogy_a'),
      InlineKeyboardButton(text="Б", callback_data='kg_creating_an_analogy_b')],
     [InlineKeyboardButton(text="В", callback_data='kg_creating_an_analogy_v'),
+     InlineKeyboardButton(text="Г", callback_data='kg_creating_an_analogy_g')]
+])
+
+# Option buttons for creating an analogy in kg finish
+option_buttons_for_creating_an_analogy_kg_finish = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="A", callback_data='kg_creating_an_analogy_a'),
+     InlineKeyboardButton(text="Б", callback_data='kg_creating_an_analogy_b')],
+    [InlineKeyboardButton(text="В", callback_data='kg_creating_an_analogy_v'),
      InlineKeyboardButton(text="Г", callback_data='kg_creating_an_analogy_g')],
     [InlineKeyboardButton(text="Жөнөтүү ➡️", callback_data='kg_send_an_analogy')]
 ])
 
 # Option buttons for creating an analogy in ru
 option_buttons_for_creating_an_analogy_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="A", callback_data='ru_creating_an_analogy_a'),
+     InlineKeyboardButton(text="Б", callback_data='ru_creating_an_analogy_b')],
+    [InlineKeyboardButton(text="В", callback_data='ru_creating_an_analogy_v'),
+     InlineKeyboardButton(text="Г", callback_data='ru_creating_an_analogy_g')]
+])
+
+# Option buttons for creating an analogy in ru finish
+option_buttons_for_creating_an_analogy_ru_finish = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="A", callback_data='ru_creating_an_analogy_a'),
      InlineKeyboardButton(text="Б", callback_data='ru_creating_an_analogy_b')],
     [InlineKeyboardButton(text="В", callback_data='ru_creating_an_analogy_v'),
@@ -56,6 +72,14 @@ option_buttons_for_creating_a_grammar_kg = InlineKeyboardMarkup(inline_keyboard=
     [InlineKeyboardButton(text="A", callback_data='kg_creating_an_grammar_a'),
      InlineKeyboardButton(text="Б", callback_data='kg_creating_an_grammar_b')],
     [InlineKeyboardButton(text="В", callback_data='kg_creating_an_grammar_v'),
+     InlineKeyboardButton(text="Г", callback_data='kg_creating_an_grammar_g')]
+])
+
+# Option buttons for creating a grammar in kg finish
+option_buttons_for_creating_a_grammar_kg_finish = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="A", callback_data='kg_creating_an_grammar_a'),
+     InlineKeyboardButton(text="Б", callback_data='kg_creating_an_grammar_b')],
+    [InlineKeyboardButton(text="В", callback_data='kg_creating_an_grammar_v'),
      InlineKeyboardButton(text="Г", callback_data='kg_creating_an_grammar_g')],
     [InlineKeyboardButton(text="Жөнөтүү ➡️", callback_data='kg_send_an_grammar')]
 ])
@@ -65,6 +89,24 @@ option_buttons_for_creating_a_grammar_ru = InlineKeyboardMarkup(inline_keyboard=
     [InlineKeyboardButton(text="A", callback_data='ru_creating_an_grammar_a'),
      InlineKeyboardButton(text="Б", callback_data='ru_creating_an_grammar_b')],
     [InlineKeyboardButton(text="В", callback_data='ru_creating_an_grammar_v'),
+     InlineKeyboardButton(text="Г", callback_data='ru_creating_an_grammar_g')]
+])
+
+# Option buttons for creating a grammar in kg finish
+option_buttons_for_creating_a_grammar_ru_finish = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="A", callback_data='ru_creating_an_grammar_a'),
+     InlineKeyboardButton(text="Б", callback_data='ru_creating_an_grammar_b')],
+    [InlineKeyboardButton(text="В", callback_data='ru_creating_an_grammar_v'),
      InlineKeyboardButton(text="Г", callback_data='ru_creating_an_grammar_g')],
     [InlineKeyboardButton(text="Отправить ➡️", callback_data='ru_send_an_grammar')]
+])
+
+# To user account kg
+to_user_account_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg'),]
+])
+
+# To user account ru
+to_user_account_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru'),]
 ])
