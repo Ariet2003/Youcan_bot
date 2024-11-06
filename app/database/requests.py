@@ -3,7 +3,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import async_session
-from app.database.models import User, Admin
+from app.database.models import User, Admin, Question
 from sqlalchemy import select, delete
 from datetime import datetime
 import pytz
@@ -86,3 +86,22 @@ async def get_user_name(telegram_id: str) -> Optional[str]:
         name = result.scalar_one_or_none()
 
         return name
+
+# Write analogy questions to the DB
+async def write_analogy(user_id: int, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending"):
+    async with async_session() as session:
+        async with session.begin():
+            new_question = Question(
+                user_id=user_id,
+                subject_id=subject_id,
+                content=content,
+                option_a=option_a,
+                option_b=option_b,
+                option_v=option_v,
+                option_g=option_g,
+                correct_option=correct_option,
+                status=status,
+                created_at=get_current_time()
+            )
+            session.add(new_question)
+            await session.commit()

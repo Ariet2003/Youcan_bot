@@ -1,9 +1,10 @@
+import json
+
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram import F, Router
 from app.database import requests as rq
 from aiogram.fsm.context import FSMContext
-
 from app.users.user.scripts import is_valid_analogy, is_kyrgyz_words, is_kyrgyz_sentence, is_russian_words, \
     is_russian_sentence
 from app.utils import sent_message_add_screen_ids, router
@@ -273,6 +274,14 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     option_key = callback_query.data.split('_')[-1].upper()
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
+    if option_key == 'A':
+        await state.update_data(correct_option='А')
+    if option_key == 'B':
+        await state.update_data(correct_option='Б')
+    if option_key == 'V':
+        await state.update_data(correct_option='В')
+    if option_key == 'G':
+        await state.update_data(correct_option='Г')
 
     data = await state.get_data()
     question_text = data['question_text']
@@ -466,6 +475,15 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
 
+    if option_key == 'A':
+        await state.update_data(correct_option='А')
+    if option_key == 'B':
+        await state.update_data(correct_option='Б')
+    if option_key == 'V':
+        await state.update_data(correct_option='В')
+    if option_key == 'G':
+        await state.update_data(correct_option='Г')
+
     data = await state.get_data()
     question_text = data['question_text']
     options = data['options']
@@ -634,6 +652,15 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
 
+    if option_key == 'A':
+        await state.update_data(correct_option='А')
+    if option_key == 'B':
+        await state.update_data(correct_option='Б')
+    if option_key == 'V':
+        await state.update_data(correct_option='В')
+    if option_key == 'G':
+        await state.update_data(correct_option='Г')
+
     data = await state.get_data()
     question_text = data['question_text']
     options = data['options']
@@ -799,6 +826,15 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
 
+    if option_key == 'A':
+        await state.update_data(correct_option='А')
+    if option_key == 'B':
+        await state.update_data(correct_option='Б')
+    if option_key == 'V':
+        await state.update_data(correct_option='В')
+    if option_key == 'G':
+        await state.update_data(correct_option='Г')
+
     data = await state.get_data()
     question_text = data['question_text']
     options = data['options']
@@ -813,4 +849,38 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.option_buttons_for_creating_a_grammar_ru,
         parse_mode=ParseMode.MARKDOWN
     )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+# Write analogy questions to the DB
+@router.callback_query(F.data == 'kg_send_an_analogy')
+async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    data = await state.get_data()
+    question_text = data['question_text']
+    options = data['options']
+    user_id = callback_query.from_user.id
+    correct_option = data['correct_option']
+
+    option_a = options.get('A', '')
+    option_b = options.get('B', '')
+    option_v = options.get('V', '')
+    option_g = options.get('G', '')
+
+    # Записываем вопрос в БД
+    await rq.write_analogy(
+        user_id=user_id,
+        subject_id=4,
+        content=question_text,
+        option_a=option_a,
+        option_b=option_b,
+        option_v=option_v,
+        option_g=option_g,
+        correct_option=correct_option,
+        status="pending"
+    )
+
+    sent_message = await callback_query.message.answer("Ваш вопрос успешно добавлен!")
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
