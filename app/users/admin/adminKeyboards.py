@@ -31,6 +31,11 @@ verify_question = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 send_notification = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="📤 Отправить всем пользователям", callback_data='send_notification_all'),
-     InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
+    [InlineKeyboardButton(text="📤 Отправить всем пользователям", callback_data='send_notification_all')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
+])
+
+statistic = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🔔 Статистика уведомлений", callback_data='notification_statistics')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
 ])

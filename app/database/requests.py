@@ -256,3 +256,32 @@ async def send_notification_to_all_users(text_notification: str, photo_id: str =
 
             session.add(notification)
             await session.commit()
+
+async def get_last_50_notifications():
+    try:
+        async with async_session() as session:
+            # Получаем последние 50 уведомлений
+            result = await session.execute(
+                select(Notification)
+                .order_by(Notification.created_at.desc())  # Сортируем по дате создания
+                .limit(50)  # Ограничиваем 50 последними записями
+            )
+
+            # Извлекаем уведомления
+            notifications = result.scalars().all()
+
+            # Формируем красивое отображение уведомлений с эмодзи
+            formatted_notifications = ""
+            for notification in notifications:
+                # Обрезаем текст уведомления до 40 символов
+                text_preview = notification.text[:40] + "..." if len(notification.text) > 40 else notification.text
+
+                formatted_notifications += f"📩: {text_preview}\n"
+                formatted_notifications += f"👥: {notification.total_users} | ✅: {notification.sent_count} | ⏰: {notification.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                formatted_notifications += "-" * 65 + "\n"
+
+            return formatted_notifications
+
+    except Exception as e:
+        print(f"Ошибка при получении уведомлений: {e}")
+        return None

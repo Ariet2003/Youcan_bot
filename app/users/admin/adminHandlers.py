@@ -350,3 +350,31 @@ async def send_notification_all(callback_query: CallbackQuery, state: FSMContext
     # Отправка уведомлений всем пользователям
     await rq.send_notification_to_all_users(text_notification, photo_id)
 
+# Statistics
+@router.callback_query(F.data == 'statistics')
+async def statistics(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForStatistics,
+        caption="Выберите раздел для просмотра статистики",
+        reply_markup=kb.statistic
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(F.data == 'notification_statistics')
+async def notification_statistics(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    formatted_notifications = await rq.get_last_50_notifications()
+
+    if formatted_notifications:
+        sent_message = await callback_query.message.answer(text=formatted_notifications,
+                                            reply_markup=kb.to_admin_account)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await callback_query.message.answer(text="Не удалось получить данные о уведомлениях.",
+                                            reply_markup=kb.to_admin_account)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
