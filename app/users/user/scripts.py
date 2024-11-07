@@ -131,3 +131,17 @@ async def is_russian_sentence(sentence):
             return "Правильно"
     else:
         return f"Ошибка при выполнении запроса: {response.status_code}"
+
+# Script to format analogy string
+async def format_analogy(content: str, option_a: str, option_b: str, option_v: str, option_g: str):
+    def format_text(text: str) -> str:
+        parts = [part.strip().capitalize() for part in text.split(':', 1)]
+        return ' : '.join(parts) if len(parts) > 1 else parts[0].capitalize()
+
+    formatted_content = format_text(content)
+    formatted_option_a = format_text(option_a)
+    formatted_option_b = format_text(option_b)
+    formatted_option_v = format_text(option_v)
+    formatted_option_g = format_text(option_g)
+
+    return formatted_content, formatted_option_a, formatted_option_b, formatted_option_v, formatted_option_g

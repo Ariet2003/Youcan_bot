@@ -6,7 +6,7 @@ from aiogram import F, Router
 from app.database import requests as rq
 from aiogram.fsm.context import FSMContext
 from app.users.user.scripts import is_valid_analogy, is_kyrgyz_words, is_kyrgyz_sentence, is_russian_words, \
-    is_russian_sentence
+    is_russian_sentence, format_analogy
 from app.utils import sent_message_add_screen_ids, router
 from app.users.user import userStates as st
 import app.users.user.userKeyboards as kb
@@ -869,11 +869,15 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
     option_v = options.get('V', '')
     option_g = options.get('G', '')
 
-    # Записываем вопрос в БД
-    is_not_have = await rq.write_question(user_id=user_id, subject_id=4, content=question_text, option_a=option_a,
-                                          option_b=option_b,
-                                          option_v=option_v, option_g=option_g, correct_option=correct_option,
-                                          status="pending")
+    # Script to format analogy string
+    formatted_question_text, formatted_option_a, formatted_option_b, formatted_option_v, formatted_option_g = await format_analogy(
+        question_text, option_a, option_b, option_v, option_g
+    )
+
+    is_not_have = await rq.write_question(user_id=user_id, subject_id=4, content=formatted_question_text,
+                                          option_a=formatted_option_a, option_b=formatted_option_b,
+                                          option_v=formatted_option_v, option_g=formatted_option_g,
+                                          correct_option=correct_option, status="pending")
     if is_not_have:
         await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
 
@@ -912,11 +916,15 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
     option_v = options.get('V', '')
     option_g = options.get('G', '')
 
-    # Записываем вопрос в БД
-    is_not_have = await rq.write_question(user_id=user_id, subject_id=3, content=question_text, option_a=option_a,
-                                          option_b=option_b,
-                                          option_v=option_v, option_g=option_g, correct_option=correct_option,
-                                          status="pending")
+    # Script to format analogy string
+    formatted_question_text, formatted_option_a, formatted_option_b, formatted_option_v, formatted_option_g = await format_analogy(
+        question_text, option_a, option_b, option_v, option_g
+    )
+
+    is_not_have = await rq.write_question(user_id=user_id, subject_id=3, content=formatted_question_text,
+                                          option_a=formatted_option_a, option_b=formatted_option_b,
+                                          option_v=formatted_option_v, option_g=formatted_option_g,
+                                          correct_option=correct_option, status="pending")
     if is_not_have:
         await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
 
