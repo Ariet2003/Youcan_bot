@@ -89,9 +89,25 @@ async def get_user_name(telegram_id: str) -> Optional[str]:
         return name
 
 # Write analogy questions to the DB
-async def write_question(user_id: int, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending"):
+async def write_question(user_id: int, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending") -> bool:
     async with async_session() as session:
         async with session.begin():
+            # Проверка существования вопроса с такими же текстом и вариантами ответов
+            existing_question = await session.execute(
+                select(Question)
+                .where(
+                    Question.content == content,
+                    Question.option_a == option_a,
+                    Question.option_b == option_b,
+                    Question.option_v == option_v,
+                    Question.option_g == option_g
+                )
+            )
+            # Если вопрос найден, возвращаем False
+            if existing_question.scalars().first():
+                return False
+
+            # Создаем новый вопрос, так как аналогичного не найдено
             new_question = Question(
                 user_id=user_id,
                 subject_id=subject_id,
@@ -106,6 +122,9 @@ async def write_question(user_id: int, subject_id: int, content: str, option_a: 
             )
             session.add(new_question)
             await session.commit()
+
+            # Возвращаем True, чтобы показать, что вопрос был успешно добавлен
+            return True
 
 # Update the number of rubies the user has
 async def add_rubies(telegram_id: str, rubies_amount: int):
