@@ -292,5 +292,61 @@ async def add_to_vip_finish(message: Message, state: FSMContext):
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
+@router.callback_query(F.data == 'send_notifications')
+async def send_notifications(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForNotification,
+        caption="Отправьте фотографию для прикрепления к уведомлению.",
+        reply_markup=kb.to_admin_account
+    )
+    await state.set_state(st.SendNotification.add_photo)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
+@router.message(st.SendNotification.add_photo)
+async def send_notifications_write_text(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    photo_id = message.photo[-1].file_id
+    await state.update_data(photo_id=photo_id)
+    sent_message = await message.answer_photo(
+        photo=utils.pictureForNotification,
+        caption="Напишите текст для уведомления.",
+        reply_markup=kb.to_admin_account
+    )
+    await state.set_state(st.SendNotification.add_text)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.SendNotification.add_text)
+async def send_notifications_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    text_notification = message.text
+    await state.update_data(text_notification=text_notification)
+    data_notification = await state.get_data()
+    photo_id = data_notification.get("photo_id")
+    sent_message = await message.answer_photo(
+        photo=photo_id,
+        caption=str(text_notification),
+        reply_markup=kb.send_notification
+    )
+    await state.set_state(st.SendNotification.add_text)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'send_notification_all')
+async def send_notification_all(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    data_notification = await state.get_data()
+    photo_id = data_notification.get("photo_id")
+    text_notification = data_notification.get("text_notification")
+
+    # Проверка, был ли передан photo_id и текст, и отправка уведомлений всем пользователям
+    sent_message = await callback_query.message.answer("Уведомления отправляются всем пользователям...",
+                                                            reply_markup=kb.to_admin_account)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    # Отправка уведомлений всем пользователям
+    await rq.send_notification_to_all_users(text_notification, photo_id)
 

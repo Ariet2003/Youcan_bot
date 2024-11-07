@@ -3,7 +3,9 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import async_session
-from app.database.models import User, Admin, Question
+from app.database.models import User, Admin, Question, Notification
+from app.users.user import userKeyboards as kb
+from bot_instance import bot
 from sqlalchemy import select, delete
 from datetime import datetime
 from sqlalchemy import update
@@ -211,3 +213,46 @@ async def activate_subscription(telegram_id: str) -> bool:
             )
             await session.commit()
             return result.rowcount > 0
+
+
+# Функция для отправки уведомлений всем пользователям, кроме администраторов
+async def send_notification_to_all_users(text_notification: str, photo_id: str = None):
+    notification = Notification(
+        text=text_notification,
+        photo_id=photo_id,
+        total_users=0,
+        sent_count=0,
+        updated_at=get_current_time(),
+        created_at=get_current_time()
+    )
+
+    async with async_session() as session:
+        async with session.begin():
+            user_result = await session.execute(select(User.telegram_id))
+            all_users = set(user_result.scalars().all())
+
+            admin_result = await session.execute(select(Admin.telegram_id))
+            admins = set(admin_result.scalars().all())
+
+            users_to_notify = all_users - admins
+
+            notification.total_users = len(users_to_notify)
+
+            session.add(notification)
+            await session.flush()
+
+            for telegram_id in users_to_notify:
+                try:
+                    await bot.send_photo(
+                        chat_id=telegram_id,
+                        photo=photo_id,
+                        caption=text_notification,
+                        reply_markup=kb.to_user_account_kb
+                    )
+
+                    notification.sent_count += 1
+                except Exception as e:
+                    print(f"Не удалось отправить сообщение пользователю {telegram_id}: {e}")
+
+            session.add(notification)
+            await session.commit()

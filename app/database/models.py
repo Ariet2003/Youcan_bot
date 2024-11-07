@@ -113,6 +113,18 @@ class Statistic(Base):
     total_payments: Mapped[int] = mapped_column(default=0)
     updated_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
+
+class Notification(Base):
+    __tablename__ = 'notifications'
+
+    notification_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(String)
+    photo_id: Mapped[str] = mapped_column(String, nullable=True)
+    total_users: Mapped[int] = mapped_column(Integer, default=0)
+    sent_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
+
 async def async_main():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

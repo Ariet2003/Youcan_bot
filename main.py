@@ -1,17 +1,12 @@
-from aiogram import Bot, Dispatcher
-from dotenv import load_dotenv
+# main.py
+from aiogram import Dispatcher
 from app.register.registerHandlers import router
-from app.database.models import async_main # Если бд
+from app.database.models import async_main
+from bot_instance import bot, dp  # Импортируем bot и dp
 import asyncio
-import os
-
-
 
 async def main():
-    await async_main() # Если бд sqlite
-    load_dotenv()
-    bot = Bot(os.getenv('API_TOKEN'))
-    dp = Dispatcher()
+    await async_main()  # Если бд sqlite
     dp.include_router(router)
     await dp.start_polling(bot)
 

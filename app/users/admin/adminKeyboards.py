@@ -29,3 +29,8 @@ verify_question = InlineKeyboardMarkup(inline_keyboard=[
      InlineKeyboardButton(text="❌ Не правильно", callback_data='wrong_question')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin_in_verify_question')]
 ])
+
+send_notification = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📤 Отправить всем пользователям", callback_data='send_notification_all'),
+     InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
+])

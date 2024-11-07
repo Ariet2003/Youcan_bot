@@ -110,3 +110,7 @@ to_user_account_kg = InlineKeyboardMarkup(inline_keyboard=[
 to_user_account_ru = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru'),]
 ])
+
+to_user_account_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="⬅️ Артка/Назад", callback_data="back_to_account")]
+])

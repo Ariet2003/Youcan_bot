@@ -1033,3 +1033,9 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(F.data == "back_to_account")
+async def back_to_account(callback_query: CallbackQuery, state: FSMContext):
+    # Удаляем сообщение с уведомлением
+    await callback_query.message.delete()
