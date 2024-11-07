@@ -10,6 +10,8 @@ from app.users.admin import adminStates as st
 from app import utils
 from app.database import requests as rq
 from aiogram.fsm.context import FSMContext
+
+from app.users.admin.adminKeyboards import to_admin_account
 from app.utils import sent_message_add_screen_ids, router
 
 
@@ -252,3 +254,43 @@ async def return_to_pending(callback_query: CallbackQuery, state: FSMContext):
         await callback_query.message.answer(text="ID вопроса не найден в состоянии.",
                                             reply_markup=kb.to_admin_account)
     await state.clear()
+
+@router.callback_query(F.data == 'add_to_vip')
+async def add_to_vip(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForAddUserVIP,
+        caption="Отправьте Telegram ID пользователя",
+        reply_markup=kb.to_admin_account
+    )
+    await state.set_state(st.AddVIPUser.write_tg_id)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.AddVIPUser.write_tg_id)
+async def add_to_vip_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_tg_id = message.text
+
+    is_added = await rq.activate_subscription(telegram_id=user_tg_id)
+
+    if is_added:
+        sent_message = await message.answer_photo(
+            photo=utils.pictureSuccessProces,
+            caption="Пользователь успешно добавлен!",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer_photo(
+            photo=utils.pictureErrorProcess,
+            caption="Произошла ошибка при добавлении пользователя!"
+                    "\nМожет быть уже добавлен в VIP или нету такого пользователя.",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
+
+
+

@@ -190,3 +190,24 @@ async def update_question_status(question_id: int, status: str) -> bool:
         return True
     except Exception as e:
         return False
+
+
+# Update subscription_status to True, return False if already True
+async def activate_subscription(telegram_id: str) -> bool:
+    async with async_session() as session:
+        async with session.begin():
+            user = await session.execute(
+                select(User).where(User.telegram_id == telegram_id)
+            )
+            user = user.scalars().first()
+
+            if user and user.subscription_status:
+                return False
+
+            result = await session.execute(
+                update(User)
+                .where(User.telegram_id == telegram_id)
+                .values(subscription_status=True)
+            )
+            await session.commit()
+            return result.rowcount > 0
