@@ -136,3 +136,57 @@ async def add_rubies(telegram_id: str, rubies_amount: int):
                 .values(rubies=User.rubies + rubies_amount)
             )
             await session.commit()
+
+
+# Request to get and review the oldest pending question for a specific subject_id (by largest question_id)
+async def get_and_review_oldest_pending_question(subject_id: int) -> Optional[dict]:
+    async with async_session() as session:
+        # Начинаем транзакцию
+        async with session.begin():
+            # Запрос для получения самого большого question_id с статусом 'pending' и указанным subject_id
+            result = await session.execute(
+                select(Question)
+                .filter(Question.status == 'pending', Question.subject_id == subject_id)
+                .order_by(Question.question_id.desc())  # Сортировка по question_id в убывающем порядке
+            )
+            question = result.scalars().first()
+
+            if question:
+                # После завершения транзакции продолжаем выполнять запросы вне контекста транзакции
+                async with async_session() as session:
+                    # Обновляем статус вопроса на 'under review'
+                    await session.execute(
+                        update(Question)
+                        .where(Question.question_id == question.question_id)
+                        .values(status='under review')
+                    )
+                    await session.commit()
+
+                return {
+                    'question_id': question.question_id,
+                    'question_text': question.content,
+                    'option_a': question.option_a,
+                    'option_b': question.option_b,
+                    'option_v': question.option_v,
+                    'option_g': question.option_g,
+                    'correct_option': question.correct_option
+                }
+
+    return None  # Если нет вопросов со статусом 'pending' и указанным subject_id
+
+
+
+# General function to update the status of a question
+async def update_question_status(question_id: int, status: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                await session.execute(
+                    update(Question)
+                    .where(Question.question_id == question_id)
+                    .values(status=status)
+                )
+                await session.commit()
+        return True
+    except Exception as e:
+        return False

@@ -888,6 +888,7 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_kg,
             parse_mode=ParseMode.MARKDOWN
         )
+        await state.clear()
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
@@ -935,6 +936,7 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_ru,
             parse_mode=ParseMode.MARKDOWN
         )
+        await state.clear()
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
@@ -978,6 +980,7 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_ru,
             parse_mode=ParseMode.MARKDOWN
         )
+        await state.clear()
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
@@ -1019,6 +1022,7 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_kg,
             parse_mode=ParseMode.MARKDOWN
         )
+        await state.clear()
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
