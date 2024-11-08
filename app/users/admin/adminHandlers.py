@@ -378,3 +378,19 @@ async def notification_statistics(callback_query: CallbackQuery, state: FSMConte
         sent_message = await callback_query.message.answer(text="Не удалось получить данные о уведомлениях.",
                                             reply_markup=kb.to_admin_account)
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'all_statistics')
+async def all_statistics(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    all_statistics = await rq.get_all_statistics()
+
+    if all_statistics:
+        sent_message = await callback_query.message.answer(text=all_statistics,
+                                                           reply_markup=kb.to_admin_account)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await callback_query.message.answer(text="Не удалось получить данные о статистике.",
+                                                           reply_markup=kb.to_admin_account)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)

@@ -37,5 +37,6 @@ send_notification = InlineKeyboardMarkup(inline_keyboard=[
 
 statistic = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🔔 Статистика уведомлений", callback_data='notification_statistics')],
+    [InlineKeyboardButton(text="📈 Статистика данных", callback_data='all_statistics')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
 ])

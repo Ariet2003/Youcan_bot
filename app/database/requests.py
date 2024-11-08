@@ -3,7 +3,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import async_session
-from app.database.models import User, Admin, Question, Notification
+from app.database.models import User, Admin, Question, Notification, Duel
 from app.users.user import userKeyboards as kb
 from bot_instance import bot
 from sqlalchemy import select, delete
@@ -285,3 +285,73 @@ async def get_last_50_notifications():
     except Exception as e:
         print(f"Ошибка при получении уведомлений: {e}")
         return None
+
+
+# Function for getting general statistics
+async def get_all_statistics() -> str:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Counting the total number of users
+                total_users = await session.scalar(select(func.count(User.user_id)))
+
+                # Counting the number of VIP (paid) users
+                total_vip_users = await session.scalar(
+                    select(func.count(User.user_id)).where(User.subscription_status == True)
+                )
+
+                # Counting the total number of questions
+                total_questions = await session.scalar(select(func.count(Question.question_id)))
+
+                # Counting the number of questions by category (subject_id)
+                kyrgyz_analogy_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.subject_id == 4)
+                )
+                russian_analogy_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.subject_id == 3)
+                )
+                kyrgyz_grammar_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.subject_id == 2)
+                )
+                russian_grammar_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.subject_id == 1)
+                )
+
+                # Counting the number of questions by status
+                approved_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.status == "approved")
+                )
+                rejected_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.status == "rejected")
+                )
+                pending_questions = await session.scalar(
+                    select(func.count(Question.question_id)).where(Question.status == "pending")
+                )
+
+                # Counting the total number of duels and the number of pending duels
+                total_duels = await session.scalar(select(func.count(Duel.duel_id)))
+                pending_duels = await session.scalar(
+                    select(func.count(Duel.duel_id)).where(Duel.opponent_id == None)
+                )
+
+                # Formatting statistics
+                statistics = (
+                    f"Общая статистика:\n"
+                    f"👥 Всего пользователей: {total_users}\n"
+                    f"👑 VIP (платные) пользователи: {total_vip_users}\n\n"
+                    f"📄 Всего вопросов: {total_questions}\n"
+                    f"🇰🇬 Кыргызская аналогия: {kyrgyz_analogy_questions}\n"
+                    f"🇷🇺 Русская аналогия: {russian_analogy_questions}\n"
+                    f"🇰🇬 Кыргызская грамматика: {kyrgyz_grammar_questions}\n"
+                    f"🇷🇺 Русская грамматика: {russian_grammar_questions}\n\n"
+                    f"✅ Подтверждено: {approved_questions}\n"
+                    f"❌ Отклонено: {rejected_questions}\n"
+                    f"⏳ В ожидании: {pending_questions}\n\n"
+                    f"⚔️ Всего дуэлей: {total_duels}\n"
+                    f"⏳ Дуэли в ожидании: {pending_duels}"
+                )
+
+                return statistics
+
+    except Exception as e:
+        return f"Ошибка при получении статистики: {e}"
