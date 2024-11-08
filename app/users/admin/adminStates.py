@@ -10,3 +10,6 @@ class SendNotification(StatesGroup):
 
 class DeleteUser(StatesGroup):
     write_tg_id = State()
+
+class SearchUser(StatesGroup):
+    user_search_input = State()

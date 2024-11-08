@@ -419,3 +419,40 @@ async def delete_user_by_id(telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при удалении пользователя: {e}")
         return False
+
+
+# Функция для поиска пользователей по ФИО, tg_id или номеру телефона
+async def search_users(search_query: str) -> list:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Поиск по ФИО, telegram_id или телефону
+                search_results = await session.execute(
+                    select(User).where(
+                        (User.name.ilike(f"%{search_query}%")) |
+                        (User.telegram_id.ilike(f"%{search_query}%")) |
+                        (User.phone_number.ilike(f"%{search_query}%"))
+                    )
+                )
+                users = search_results.scalars().all()
+
+                # Если результаты найдены, форматируем список пользователей
+                if users:
+                    user_list = []
+                    for user in users:
+                        subscription_status = "VIP" if user.subscription_status else " - "
+                        whatsapp_link = f"[WhatsApp](https://wa.me/{user.phone_number})" if user.phone_number else "N/A"
+                        language_flag = "🇷🇺" if user.language == "ru" else "🇰🇬" if user.language == "kg" else "N/A"
+
+                        user_info = (
+                            f"🔹 [{user.name}](tg://user?id={user.telegram_id}) | {user.telegram_id} | "
+                            f"{user.rubies} 💎 | {subscription_status} | {language_flag} | {whatsapp_link}"
+                        )
+                        user_list.append(user_info)
+                    return user_list
+                else:
+                    return []  # Если пользователей не найдено
+
+    except Exception as e:
+        print(f"Ошибка при поиске пользователей: {e}")
+        return []

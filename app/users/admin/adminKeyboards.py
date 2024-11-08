@@ -44,6 +44,7 @@ statistic = InlineKeyboardMarkup(inline_keyboard=[
 list_users = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="📜 Список пользователей", callback_data="show_users"),
      InlineKeyboardButton(text="🗑️ Удалить пользователя", callback_data="delete_user")],
+    [InlineKeyboardButton(text="🔍 Поиск пользователя", callback_data='user_search')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
 ])
 

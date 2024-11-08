@@ -493,3 +493,50 @@ async def delete_user_yes_no(message: Message, state: FSMContext):
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     await state.clear()  # Закрываем состояние после обработки
+
+
+# Хендлер для начала поиска
+@router.callback_query(F.data == 'user_search')
+async def user_search(callback_query: CallbackQuery, state: FSMContext):
+    # Убираем старые сообщения
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    # Запрашиваем у пользователя, что он хочет искать
+    sent_message = await callback_query.message.answer(
+        "Введите данные для поиска пользователя:\n(ФИО, Telegram ID или номер телефона)",
+        reply_markup=kb.to_admin_account  # клавиатура "Назад" в админку
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Устанавливаем состояние для ожидания ввода
+    await state.set_state(st.SearchUser.user_search_input)
+
+
+# Хендлер для обработки ввода поиска
+@router.message(st.SearchUser.user_search_input)
+async def handle_search_input(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    search_query = message.text.strip()
+
+    # Получаем список пользователей, которые соответствуют запросу
+    users_list = await rq.search_users(search_query)
+
+    # Если пользователей не найдено
+    if not users_list:
+        sent_message = await message.answer(
+            "⚠️ Пользователи не найдены по вашему запросу.",
+            reply_markup=kb.to_admin_account
+        )
+    else:
+        # Формируем сообщение с найденными пользователями
+        users_message = "Результаты поиска:\n\n" + "\n".join(users_list)
+        sent_message = await message.answer(
+            users_message,
+            parse_mode="Markdown",
+            reply_markup=kb.to_admin_account,
+            disable_web_page_preview=True
+        )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()  # Закрытие состояния после завершения поиска
