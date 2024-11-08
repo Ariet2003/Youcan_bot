@@ -355,3 +355,44 @@ async def get_all_statistics() -> str:
 
     except Exception as e:
         return f"Ошибка при получении статистики: {e}"
+
+
+# Функция для получения списка пользователей с учетом пагинации
+async def get_users_list(offset: int = 0, limit: int = 50):
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Запрос пользователей с учетом лимита и смещения
+                result = await session.execute(
+                    select(User)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                users = result.scalars().all()
+
+                # Проверка наличия пользователей
+                if not users:
+                    return "⚠️ Пользователи не найдены."
+
+                # Форматирование пользователей
+                users_list = []
+                for index, user in enumerate(users, start=offset + 1):
+                    subscription_status = "VIP" if user.subscription_status else " - "
+
+                    # Скрытая ссылка на WhatsApp
+                    whatsapp_link = f"[WhatsApp](https://wa.me/{user.phone_number})" if user.phone_number else "N/A"
+
+                    # Замена кода языка на флаг
+                    language_flag = "🇷🇺" if user.language == "ru" else "🇰🇬" if user.language == "kg" else "N/A"
+
+                    # Информация о пользователе с добавлением скрытой ссылки на WhatsApp и флага языка
+                    user_info = (
+                        f"{index}. [{user.name}](tg://user?id={user.telegram_id}) ● {user.telegram_id} ● "
+                        f"{user.rubies} 💎 ● {subscription_status} ● {language_flag} ● {whatsapp_link}"
+                    )
+                    users_list.append(user_info)
+
+                return "\n".join(users_list)
+
+    except Exception as e:
+        return f"Ошибка при получении списка пользователей: {e}"

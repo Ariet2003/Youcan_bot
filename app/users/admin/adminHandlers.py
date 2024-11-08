@@ -394,3 +394,48 @@ async def all_statistics(callback_query: CallbackQuery, state: FSMContext):
         sent_message = await callback_query.message.answer(text="Не удалось получить данные о статистике.",
                                                            reply_markup=kb.to_admin_account)
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Обработчик для отображения списка пользователей
+@router.callback_query(F.data == 'show_users')
+async def show_users(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    data = await state.get_data()
+    offset = data.get('offset', 0)
+    limit = 50
+
+    # Получаем список пользователей с учетом текущего смещения
+    users_list = await rq.get_users_list(offset=offset, limit=limit)
+
+    # Формируем текст сообщения
+    if users_list == "⚠️ Пользователи не найдены.":
+        message = users_list
+    else:
+        message = (
+            f"📋 Список пользователей (показаны {offset + 1}-{offset + limit}):\n\n{users_list}"
+        )
+
+    sent_message = await callback_query.message.answer(
+        message,
+        parse_mode="Markdown",
+        reply_markup=kb.edit_users,
+        disable_web_page_preview=True
+    )
+    # Сохранение текущего смещения в состоянии для навигации
+    await state.update_data(offset=offset)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Обработчики для навигации между страницами пользователей
+@router.callback_query(F.data == 'show_users_next')
+async def show_users_next(callback_query: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    offset = data.get('offset', 0) + 50
+    await state.update_data(offset=offset)
+    await show_users(callback_query, state)
+
+@router.callback_query(F.data == 'show_users_prev')
+async def show_users_prev(callback_query: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    offset = max(0, data.get('offset', 0) - 50)
+    await state.update_data(offset=offset)
+    await show_users(callback_query, state)
