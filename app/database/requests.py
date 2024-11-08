@@ -396,3 +396,26 @@ async def get_users_list(offset: int = 0, limit: int = 50):
 
     except Exception as e:
         return f"Ошибка при получении списка пользователей: {e}"
+
+# Функция для удаления пользователя по ID
+async def delete_user_by_id(telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                user = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = user.scalars().first()
+
+                if not user:
+                    return False  # Пользователь не найден
+
+                result = await session.execute(
+                    delete(User).where(User.telegram_id == telegram_id)
+                )
+                await session.commit()
+                return result.rowcount > 0  # Если удалено хотя бы 1 запись, вернем True
+
+    except Exception as e:
+        print(f"Ошибка при удалении пользователя: {e}")
+        return False

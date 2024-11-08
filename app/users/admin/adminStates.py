@@ -7,3 +7,6 @@ class AddVIPUser(StatesGroup):
 class SendNotification(StatesGroup):
     add_photo = State()
     add_text = State()
+
+class DeleteUser(StatesGroup):
+    write_tg_id = State()

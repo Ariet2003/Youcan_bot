@@ -439,3 +439,57 @@ async def show_users_prev(callback_query: CallbackQuery, state: FSMContext):
     offset = max(0, data.get('offset', 0) - 50)
     await state.update_data(offset=offset)
     await show_users(callback_query, state)
+
+@router.callback_query(F.data == 'list_users')
+async def list_users(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForListUsers,
+        caption="Выберите нужную вам кнопку.",
+        reply_markup=kb.list_users
+    )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(F.data == 'delete_user')
+async def delete_user(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForListUsers,
+        caption="Введите Telegram ID пользователя.",
+        reply_markup=kb.to_admin_account
+    )
+
+    await state.set_state(st.DeleteUser.write_tg_id)
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.message(st.DeleteUser.write_tg_id)
+async def delete_user_yes_no(message: Message, state: FSMContext):
+    user_tg_id = message.text.strip()  # Получаем Telegram ID пользователя
+
+    # Убираем старые сообщения
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+
+    # Попытка удаления пользователя
+    is_deleted = await rq.delete_user_by_id(user_tg_id)
+
+    if is_deleted:
+        sent_message = await message.answer(
+            f"Пользователь с ID {user_tg_id} был удален.",
+            reply_markup=kb.to_admin_account
+        )
+    else:
+        sent_message = await message.answer(
+            "Не удалось удалить пользователя. Он может не существовать.",
+            reply_markup=kb.to_admin_account
+        )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()  # Закрываем состояние после обработки

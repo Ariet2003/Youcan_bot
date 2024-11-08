@@ -4,7 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 profile_button = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="📜 Вопросы", callback_data='validate_questions'),
      InlineKeyboardButton(text="🌟 Добавить в VIP", callback_data='add_to_vip')],
-    [InlineKeyboardButton(text="👥 Пользователи", callback_data='show_users'),
+    [InlineKeyboardButton(text="👥 Пользователи", callback_data='list_users'),
      InlineKeyboardButton(text="🔔 Уведомления", callback_data='send_notifications')],
     [InlineKeyboardButton(text="⚙️ Настройки", callback_data='admin_settings'),
      InlineKeyboardButton(text="📊 Статистика", callback_data='statistics')]
@@ -38,6 +38,12 @@ send_notification = InlineKeyboardMarkup(inline_keyboard=[
 statistic = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🔔 Статистика уведомлений", callback_data='notification_statistics')],
     [InlineKeyboardButton(text="📈 Статистика данных", callback_data='all_statistics')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
+])
+
+list_users = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📜 Список пользователей", callback_data="show_users"),
+     InlineKeyboardButton(text="🗑️ Удалить пользователя", callback_data="delete_user")],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
 ])
 
