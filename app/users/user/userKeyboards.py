@@ -164,3 +164,13 @@ user_settings_kg = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="ФИО алмаштыруу", callback_data='change_nickname_kg')],
     [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
 ])
+
+whatsapp_button_without_text_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Whatsapp", url=f"https://wa.me/{utils.PhoneNumberAdmin}")],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])
+
+whatsapp_button_without_text_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Whatsapp", url=f"https://wa.me/{utils.PhoneNumberAdmin}")],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])

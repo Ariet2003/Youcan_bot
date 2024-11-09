@@ -1349,3 +1349,25 @@ async def current_status_kg(callback_query: CallbackQuery):
         reply_markup=kb.to_user_account_kg
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'helpdesk_kg')
+async def helpdesk_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForFAQKG,
+        caption="Бот боюнча кандайдыр бир суроолор бар болсо төмөндөгү баскычты бас.",
+        reply_markup=kb.whatsapp_button_without_text_kg
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'helpdesk_ru')
+async def helpdesk_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForFAQRU,
+        caption="Если у вас есть вопросы по боту, нажмите кнопку ниже.",
+        reply_markup=kb.whatsapp_button_without_text_ru
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
