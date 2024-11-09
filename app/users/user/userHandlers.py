@@ -1039,3 +1039,45 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
 async def back_to_account(callback_query: CallbackQuery, state: FSMContext):
     # Удаляем сообщение с уведомлением
     await callback_query.message.delete()
+
+
+@router.callback_query(F.data == 'vip_ru')
+async def vip_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    # Получаем Telegram ID пользователя
+    telegram_id = callback_query.from_user.id
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForGoToVIPRU,
+        caption=(
+            f'<a href="https://telegra.ph/Bizdin-ORTga-dayardanuu-%D2%AFch%D2%AFn-Telegram-bot-kandaj-ishtejt-10-30">'
+            f"Каковы преимущества статуса VIP-пользователя?</a> 👈\n\n"
+            f"Если вы хотите стать VIP-пользователем или у вас есть вопросы, нажмите кнопку ниже👇"
+        ),
+        reply_markup=kb.whatsapp_button_ru(telegram_id=telegram_id),
+        parse_mode=ParseMode.HTML
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(F.data == 'vip_kg')
+async def vip_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    # Получаем Telegram ID пользователя
+    telegram_id = callback_query.from_user.id
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForGoToVIPKG,
+        caption=(
+            f'<a href="https://telegra.ph/Bizdin-ORTga-dayardanuu-%D2%AFch%D2%AFn-Telegram-bot-kandaj-ishtejt-10-30">'
+            f"VIP колдонуучунун кандай артыкчылыктары бар?</a> 👈\n\n"
+            f"Эгер VIP колдонуучуга өтүүнү кааласаңыз же суроолоруңуз болсо төмөндөнү баскычты басаңыз👇"
+        ),
+        reply_markup=kb.whatsapp_button_kg(telegram_id=telegram_id),
+        parse_mode=ParseMode.HTML
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)

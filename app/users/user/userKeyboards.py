@@ -1,5 +1,8 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from urllib.parse import quote
+
+from app import utils
 
 # User personal account buttons in Kyrgyz
 profile_button_kg = InlineKeyboardMarkup(inline_keyboard=[
@@ -103,14 +106,43 @@ option_buttons_for_creating_a_grammar_ru_finish = InlineKeyboardMarkup(inline_ke
 
 # To user account kg
 to_user_account_kg = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg'),]
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
 ])
 
 # To user account ru
 to_user_account_ru = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru'),]
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
 ])
 
 to_user_account_kb = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="⬅️ Артка/Назад", callback_data="back_to_account")]
 ])
+
+
+# Формируем сообщение для передачи в WhatsApp
+def get_whatsapp_link_ru(telegram_id: str):
+    phone_number = utils.PhoneNumberAdmin
+    message = f"Здравствуйте! Хочу приобрести VIP статус. Мой Telegram ID: {telegram_id}"
+    encoded_message = quote(message)  # Кодируем сообщение для URL
+    return f"https://wa.me/{phone_number}?text={encoded_message}"
+
+# Клавиатура с кнопкой для перехода в WhatsApp
+def whatsapp_button_ru(telegram_id: str):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Whatsapp", url=get_whatsapp_link_ru(telegram_id))],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])
+
+# Формируем сообщение для передачи в WhatsApp
+def get_whatsapp_link_kg(telegram_id: str):
+    phone_number = utils.PhoneNumberAdmin
+    message = f"Саламатсызбы! Мен VIP статусун сатып алгым келет. Менин Telegram ID: {telegram_id}"
+    encoded_message = quote(message)  # Кодируем сообщение для URL
+    return f"https://wa.me/{phone_number}?text={encoded_message}"
+
+# Клавиатура с кнопкой для перехода в WhatsApp
+def whatsapp_button_kg(telegram_id: str):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Whatsapp", url=get_whatsapp_link_kg(telegram_id))],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])

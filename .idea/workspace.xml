@@ -6,10 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="864c11c3-89ae-451d-b617-aa10784d583b" name="Changes" comment="All folders and files are created and launched">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/database/requests.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/database/requests.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/users/admin/adminHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/admin/adminHandlers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/users/admin/adminKeyboards.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/admin/adminKeyboards.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/users/admin/adminStates.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/admin/adminStates.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/users/user/userHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userHandlers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/users/user/userKeyboards.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userKeyboards.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
     </list>
@@ -213,7 +211,7 @@
       <workItem from="1730889848489" duration="6588000" />
       <workItem from="1730919133869" duration="4165000" />
       <workItem from="1730958572729" duration="37020000" />
-      <workItem from="1731048882995" duration="22449000" />
+      <workItem from="1731048882995" duration="29788000" />
     </task>
     <task id="LOCAL-00001" summary="All folders and files are created and launched">
       <option name="closed" value="true" />
@@ -290,6 +288,6 @@
     <option name="LAST_COMMIT_MESSAGE" value="All folders and files are created and launched" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1731141097980" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1731163905126" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>
