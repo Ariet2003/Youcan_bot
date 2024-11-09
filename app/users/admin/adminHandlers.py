@@ -598,3 +598,55 @@ async def confirm_reset_vip_status(message: Message, state: FSMContext):
 
     # Очистка состояния
     await state.clear()
+
+
+@router.callback_query(F.data == 'exit_admin_panel')
+async def exit_admin_panel(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    sent_message = await callback_query.message.answer(
+        text=f"Вы действительно хотите выйти из админки?\n"
+             f"Если да, введите текущие час и минуту в формате: 12:35",
+        reply_markup=kb.to_admin_account
+    )
+    await state.set_state(st.ExitInAdminPanel.confirm_time)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ExitInAdminPanel.confirm_time)
+async def confirm_exit_admin_panel(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+
+    user_input = message.text.strip()
+    tg_id_admin = message.from_user.id
+
+    current_time = datetime.now()
+    current_hour = current_time.strftime('%H')
+    current_minute = current_time.strftime('%M')
+    expected_time = f"{current_hour}:{current_minute}"
+
+    # Проверка времени
+    if user_input == expected_time:
+        is_deleted = await rq.delete_admin_by_tg_id(telegram_id=tg_id_admin)
+        if is_deleted:
+            sent_message = await message.answer(
+                text="Вы успешно вышли из админки!"
+                     "\nДля входа в кабинет обычного пользователя нажмите /start"
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Не удалось выйти из админки!",
+                reply_markup=kb.to_admin_account
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Неверное время. Не удалось выйти из админки!",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    # Очистка состояния
+    await state.clear()

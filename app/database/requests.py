@@ -471,3 +471,29 @@ async def reset_all_users_to_regular():
                 await session.commit()
     except Exception as e:
         print(f"Ошибка при сбросе VIP-статусов: {e}")
+
+
+# Функция для удаления администратора по Telegram ID
+async def delete_admin_by_tg_id(telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:  # async_session - ваша сессия SQLAlchemy
+            async with session.begin():
+                # Проверка наличия администратора
+                result = await session.execute(
+                    select(Admin).where(Admin.telegram_id == telegram_id)
+                )
+                admin = result.scalars().first()
+
+                if not admin:
+                    return False  # Администратор не найден
+
+                # Удаление администратора
+                await session.execute(
+                    delete(Admin).where(Admin.telegram_id == telegram_id)
+                )
+                await session.commit()
+                return True  # Администратор успешно удален
+
+    except Exception as e:
+        print(f"Ошибка при удалении администратора: {e}")
+        return False

@@ -16,3 +16,6 @@ class SearchUser(StatesGroup):
 
 class ResetVipStatus(StatesGroup):
     confirm_time = State()
+
+class ExitInAdminPanel(StatesGroup):
+    confirm_time = State()
