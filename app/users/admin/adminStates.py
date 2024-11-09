@@ -17,5 +17,8 @@ class SearchUser(StatesGroup):
 class ResetVipStatus(StatesGroup):
     confirm_time = State()
 
+class ResetOneVioStatus(StatesGroup):
+    write_tg_id = State()
+
 class ExitInAdminPanel(StatesGroup):
     confirm_time = State()

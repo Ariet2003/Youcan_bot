@@ -55,7 +55,8 @@ edit_users = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 admin_seeting = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="❌ Завершить все VIP", callback_data='reset_all_vip_statuses')],
+    [InlineKeyboardButton(text="👥 Сбросить все VIP", callback_data='reset_all_vip_statuses'),
+     InlineKeyboardButton(text="👤 Удалить VIP", callback_data='reset_vip_status')],
     [InlineKeyboardButton(text="🚪 Выйти из админки", callback_data='exit_admin_panel')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_admin')]
 ])

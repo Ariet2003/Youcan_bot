@@ -497,3 +497,30 @@ async def delete_admin_by_tg_id(telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при удалении администратора: {e}")
         return False
+
+# Функция для сброса статуса пользователя по Telegram ID
+async def reset_user_subscription_status(telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:  # async_session - ваша сессия SQLAlchemy
+            async with session.begin():
+                # Проверка наличия пользователя
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = result.scalars().first()
+
+                if not user:
+                    return False  # Пользователь не найден
+
+                # Обновление статуса пользователя на False
+                await session.execute(
+                    update(User)
+                    .where(User.telegram_id == telegram_id)
+                    .values(subscription_status=False)
+                )
+                await session.commit()
+                return True  # Статус успешно сброшен
+
+    except Exception as e:
+        print(f"Ошибка при сбросе статуса пользователя: {e}")
+        return False

@@ -650,3 +650,37 @@ async def confirm_exit_admin_panel(message: Message, state: FSMContext):
 
     # Очистка состояния
     await state.clear()
+
+@router.callback_query(F.data == 'reset_vip_status')
+async def reset_vip_status(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureResetVipStatus,
+        caption="Введите Telegram ID пользователя для сброса статуса.",
+        reply_markup=kb.to_admin_account
+    )
+    await state.set_state(st.ResetOneVioStatus.write_tg_id)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ResetOneVioStatus.write_tg_id)
+async def reset_vip_status_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_tg_id = message.text
+
+    is_deleted = await rq.reset_user_subscription_status(telegram_id=user_tg_id)
+
+    if is_deleted:
+        sent_message = await message.answer(
+            text=f"Статус пользователя с Telegram ID: {user_tg_id} успешно сброшен!",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text=f"Не удалось сбросить статус пользователя!",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
