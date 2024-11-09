@@ -44,3 +44,9 @@ class ChangePhoneNumberRU(StatesGroup):
 
 class ChangePhoneNumberKG(StatesGroup):
     enter_phone_kg = State()
+
+class ChangeNicknameRU(StatesGroup):
+    enter_nickname_ru = State()
+
+class ChangeNicknameKG(StatesGroup):
+    enter_nickname_kg = State()

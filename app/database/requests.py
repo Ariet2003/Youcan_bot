@@ -654,3 +654,30 @@ async def get_user_status_kg(telegram_id: str) -> str:
         return "Ката!"  # В случае ошибки возвращаем "Ошибка"
 
 
+
+# Функция для обновления ФИО пользователя
+async def update_user_name(telegram_id: str, new_name: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Проверяем, существует ли пользователь
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = result.scalars().first()
+
+                if not user:
+                    return False  # Пользователь не найден
+
+                # Обновляем ФИО
+                await session.execute(
+                    update(User)
+                    .where(User.telegram_id == telegram_id)
+                    .values(name=new_name)
+                )
+                await session.commit()
+                return True  # ФИО успешно обновлено
+
+    except Exception as e:
+        print(f"Ошибка при обновлении ФИО пользователя: {e}")
+        return False

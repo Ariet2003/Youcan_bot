@@ -1371,3 +1371,76 @@ async def helpdesk_ru(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.whatsapp_button_without_text_ru
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Хендлер для кнопки "Изменить никнейм/ФИО"
+@router.callback_query(F.data == 'change_nickname_ru')
+async def change_nickname_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForChangeNicknameRU,
+        caption="Введите ваш новый никнейм или ФИО, чтобы обновить.",
+        reply_markup=kb.to_user_account_ru
+    )
+    await state.set_state(st.ChangeNicknameRU.enter_nickname_ru)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ChangeNicknameRU.enter_nickname_ru)
+async def change_nickname_ru_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_telegram_id = message.from_user.id
+    new_name = message.text
+    is_changed = await rq.update_user_name(telegram_id=user_telegram_id, new_name=new_name)
+
+    if is_changed:
+        sent_message = await message.answer(
+            text="Ваше ФИО было успешно изменено!",
+            reply_markup=kb.to_user_account_ru
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Произошла ошибка при изменении ФИО!",
+            reply_markup=kb.to_user_account_ru
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    await state.clear()
+
+
+# Хендлер для кнопки "Изменить никнейм/ФИО"
+@router.callback_query(F.data == 'change_nickname_kg')
+async def change_nickname_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForChangeNicknameKG,
+        caption="Жаңы ФИО жазыңыз.",
+        reply_markup=kb.to_user_account_kg
+    )
+    await state.set_state(st.ChangeNicknameKG.enter_nickname_kg)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ChangeNicknameKG.enter_nickname_kg)
+async def change_nickname_kg_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_telegram_id = message.from_user.id
+    new_name = message.text
+    is_changed = await rq.update_user_name(telegram_id=user_telegram_id, new_name=new_name)
+
+    if is_changed:
+        sent_message = await message.answer(
+            text="ФИО ийгиликтүү алмаштырылды!",
+            reply_markup=kb.to_user_account_kg
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="ФИО алмаштырууда ката кетти!",
+            reply_markup=kb.to_user_account_kg
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    await state.clear()
