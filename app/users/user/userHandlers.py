@@ -1444,3 +1444,59 @@ async def change_nickname_kg_finish(message: Message, state: FSMContext):
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
     await state.clear()
+
+
+@router.callback_query(F.data == 'my_profile_ru')
+async def my_profile(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    # Получаем данные пользователя из базы данных
+    user_data = await rq.get_user_profile_data(telegram_id)
+
+    # Формируем красивое сообщение с данными пользователя
+    profile_message = (
+        f"🌟 *Мой профиль* 🌟\n\n"
+        f"🆔 *Telegram ID:* {telegram_id}\n"
+        f"👤 *ФИО:* {user_data['name']}\n"
+        f"📱 *Номер телефона:* {user_data['phone_number']}\n"
+        f"💎 *Рубины:* {user_data['rubies']}\n"
+        f"💼 *Статус подписки:* {'VIP' if user_data['subscription_status'] else 'Обычный'}\n"
+        f"🗓️ *Дата регистрации:* {user_data['created_at'].strftime('%d-%m-%Y')}\n"
+    )
+
+    sent_message = await callback_query.message.answer(
+        text=profile_message,
+        reply_markup=kb.to_user_account_ru,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(F.data == 'my_profile_kg')
+async def my_profile(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    # Получаем данные пользователя из базы данных
+    user_data = await rq.get_user_profile_data(telegram_id)
+
+    # Формируем красивое сообщение с данными пользователя
+    profile_message = (
+        f"🌟 *Менин профилим* 🌟\n\n"
+        f"🆔 *Telegram ID:* {telegram_id}\n"
+        f"👤 *ФИО:* {user_data['name']}\n"
+        f"📱 *Телефон номер:* {user_data['phone_number']}\n"
+        f"💎 *Рубин:* {user_data['rubies']}\n"
+        f"💼 *Статус:* {'VIP' if user_data['subscription_status'] else 'Обычный'}\n"
+        f"🗓️ *Катталган дата:* {user_data['created_at'].strftime('%d-%m-%Y')}\n"
+    )
+
+    sent_message = await callback_query.message.answer(
+        text=profile_message,
+        reply_markup=kb.to_user_account_kg,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)

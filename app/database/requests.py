@@ -681,3 +681,39 @@ async def update_user_name(telegram_id: str, new_name: str) -> bool:
     except Exception as e:
         print(f"Ошибка при обновлении ФИО пользователя: {e}")
         return False
+
+
+# Функция для получения данных пользователя по Telegram ID
+async def get_user_profile_data(telegram_id: str):
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Извлекаем только нужные данные пользователя
+                result = await session.execute(
+                    select(
+                        User.name,
+                        User.phone_number,
+                        User.rubies,
+                        User.subscription_status,
+                        User.created_at,
+                        User.updated_at
+                    ).where(User.telegram_id == telegram_id)
+                )
+                user_data = result.fetchone()  # Получаем данные в виде кортежа
+
+                if not user_data:
+                    return None  # Если данные не найдены, возвращаем None
+
+                # Возвращаем данные пользователя в виде словаря
+                return {
+                    "name": user_data[0],
+                    "phone_number": user_data[1],
+                    "rubies": user_data[2],
+                    "subscription_status": user_data[3],
+                    "created_at": user_data[4],
+                    "updated_at": user_data[5]
+                }
+
+    except Exception as e:
+        print(f"Ошибка при получении данных пользователя: {e}")
+        return None  # В случае ошибки возвращаем None

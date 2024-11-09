@@ -152,7 +152,8 @@ user_settings_ru = InlineKeyboardMarkup(inline_keyboard=[
      InlineKeyboardButton(text="Изменить номер", callback_data='change_phone_number_ru')],
     [InlineKeyboardButton(text="Текущий статус", callback_data='current_status_ru'),
      InlineKeyboardButton(text="Поддержка", callback_data='helpdesk_ru')],
-    [InlineKeyboardButton(text="Изменить никнейм/ФИО", callback_data='change_nickname_ru')],
+    [InlineKeyboardButton(text="Изменить ФИО", callback_data='change_nickname_ru'),
+     InlineKeyboardButton(text="Мой профиль", callback_data='my_profile_ru')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
 ])
 
@@ -161,7 +162,8 @@ user_settings_kg = InlineKeyboardMarkup(inline_keyboard=[
      InlineKeyboardButton(text="Номер алмаштыруу", callback_data='change_phone_number_kg')],
     [InlineKeyboardButton(text="Менин статусум", callback_data='current_status_kg'),
      InlineKeyboardButton(text="Колдоо кызматы", callback_data='helpdesk_kg')],
-    [InlineKeyboardButton(text="ФИО алмаштыруу", callback_data='change_nickname_kg')],
+    [InlineKeyboardButton(text="ФИО алмаштыруу", callback_data='change_nickname_kg'),
+     InlineKeyboardButton(text="Менин профилим", callback_data='my_profile_kg')],
     [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
 ])
 
