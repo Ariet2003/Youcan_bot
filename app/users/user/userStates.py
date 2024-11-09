@@ -38,3 +38,9 @@ class ChangeLanguageKG(StatesGroup):
 
 class ChangeLanguageRU(StatesGroup):
     write_kg = State()
+
+class ChangePhoneNumberRU(StatesGroup):
+    enter_phone_ru = State()
+
+class ChangePhoneNumberKG(StatesGroup):
+    enter_phone_kg = State()

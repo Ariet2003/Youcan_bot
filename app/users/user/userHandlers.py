@@ -1,4 +1,6 @@
 import json
+import re
+
 
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
@@ -1191,4 +1193,100 @@ async def change_language_ru_write_kg(message: Message, state: FSMContext):
             reply_markup=kb.to_user_account_ru
         )
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
+
+
+@router.callback_query(F.data == 'change_phone_number_ru')
+async def prompt_change_phone_number_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    # Отправляем сообщение с просьбой ввести новый номер телефона
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForChangePhoneNumberRU,
+        caption="Пожалуйста, введите ваш новый номер телефона:",
+        reply_markup=kb.to_user_account_ru
+    )
+
+    # Переходим в состояние ввода номера телефона
+    await state.set_state(st.ChangePhoneNumberRU.enter_phone_ru)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.message(st.ChangePhoneNumberRU.enter_phone_ru)
+async def change_phone_number(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    new_phone_number = message.text.strip()
+
+    # Проверяем формат номера телефона
+    if not re.match(r"^\+996\d{9}$", new_phone_number):
+        sent_message = await message.answer(
+            text="Некорректный номер телефона. Пожалуйста, введите номер в формате +996XXXXXXXXX.",
+            reply_markup=kb.to_user_account_ru)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        telegram_id = message.from_user.id
+
+        is_updated = await rq.update_user_phone_number(telegram_id, new_phone_number)
+
+        if is_updated:
+            sent_message = await message.answer(
+                text="Ваш номер телефона успешно обновлен.",
+                reply_markup=kb.to_user_account_ru)
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Не удалось обновить номер телефона. Попробуйте позже.",
+                reply_markup=kb.to_user_account_ru)
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    await state.clear()
+
+
+@router.callback_query(F.data == 'change_phone_number_kg')
+async def prompt_change_phone_number_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    # Отправляем сообщение с просьбой ввести новый номер телефона
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForChangePhoneNumberKG,
+        caption="Сураныч, жаңы телефон номериңизди киргизиңиз:",
+        reply_markup=kb.to_user_account_kg
+    )
+
+    # Переходим в состояние ввода номера телефона
+    await state.set_state(st.ChangePhoneNumberKG.enter_phone_kg)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.message(st.ChangePhoneNumberKG.enter_phone_kg)
+async def change_phone_number(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    new_phone_number = message.text.strip()
+
+    # Проверяем формат номера телефона
+    if not re.match(r"^\+996\d{9}$", new_phone_number):
+        sent_message = await message.answer(
+            text="Жараксыз телефон номери. Номерди +996ХХХХХХХХ форматында киргизиңиз.",
+            reply_markup=kb.to_user_account_kg)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        telegram_id = message.from_user.id
+
+        is_updated = await rq.update_user_phone_number(telegram_id, new_phone_number)
+
+        if is_updated:
+            sent_message = await message.answer(
+                text="Телефон номериңиз ийгиликтүү жаңыртылды.",
+                reply_markup=kb.to_user_account_kg)
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Телефон номери жаңыртылган жок. Кийинчерээк кайра аракет кылыңыз.",
+                reply_markup=kb.to_user_account_kg)
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
     await state.clear()

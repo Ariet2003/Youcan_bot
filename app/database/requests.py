@@ -580,3 +580,31 @@ async def set_user_language_to_kg(telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при изменении языка пользователя: {e}")
         return False
+
+
+# Функция для обновления номера телефона пользователя
+async def update_user_phone_number(telegram_id: str, new_phone_number: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Проверяем, существует ли пользователь
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = result.scalars().first()
+
+                if not user:
+                    return False  # Пользователь не найден
+
+                # Обновляем номер телефона
+                await session.execute(
+                    update(User)
+                    .where(User.telegram_id == telegram_id)
+                    .values(phone_number=new_phone_number)
+                )
+                await session.commit()
+                return True  # Номер телефона успешно обновлен
+
+    except Exception as e:
+        print(f"Ошибка при обновлении номера телефона: {e}")
+        return False
