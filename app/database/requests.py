@@ -524,3 +524,59 @@ async def reset_user_subscription_status(telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при сбросе статуса пользователя: {e}")
         return False
+
+
+# Функция для изменения языка пользователя на "ru" по Telegram ID
+async def set_user_language_to_ru(telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:  # async_session - ваша сессия SQLAlchemy
+            async with session.begin():
+                # Проверка наличия пользователя
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = result.scalars().first()
+
+                if not user:
+                    return False  # Пользователь не найден
+
+                # Обновление языка пользователя на "ru"
+                await session.execute(
+                    update(User)
+                    .where(User.telegram_id == telegram_id)
+                    .values(language="ru")
+                )
+                await session.commit()
+                return True  # Язык успешно изменен на "ru"
+
+    except Exception as e:
+        print(f"Ошибка при изменении языка пользователя: {e}")
+        return False
+
+
+# Функция для изменения языка пользователя на "kg" по Telegram ID
+async def set_user_language_to_kg(telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:  # async_session - ваша сессия SQLAlchemy
+            async with session.begin():
+                # Проверка наличия пользователя
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = result.scalars().first()
+
+                if not user:
+                    return False  # Пользователь не найден
+
+                # Обновление языка пользователя на "kg"
+                await session.execute(
+                    update(User)
+                    .where(User.telegram_id == telegram_id)
+                    .values(language="kg")
+                )
+                await session.commit()
+                return True  # Язык успешно изменен на "kg"
+
+    except Exception as e:
+        print(f"Ошибка при изменении языка пользователя: {e}")
+        return False

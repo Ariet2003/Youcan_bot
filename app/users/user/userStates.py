@@ -32,3 +32,9 @@ class CreatGrammarQuestionsRU(StatesGroup):
     create_option_v_ru = State()
     create_option_g_ru = State()
     chose_correct_ru = State()
+
+class ChangeLanguageKG(StatesGroup):
+    write_ru = State()
+
+class ChangeLanguageRU(StatesGroup):
+    write_kg = State()

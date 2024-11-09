@@ -146,3 +146,21 @@ def whatsapp_button_kg(telegram_id: str):
         [InlineKeyboardButton(text="Whatsapp", url=get_whatsapp_link_kg(telegram_id))],
         [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
     ])
+
+user_settings_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Изменить язык", callback_data='change_language_ru'),
+     InlineKeyboardButton(text="Изменить номер", callback_data='change_phone_number_ru')],
+    [InlineKeyboardButton(text="Текущий статус", callback_data='current_status_ru'),
+     InlineKeyboardButton(text="Поддержка", callback_data='helpdesk_ru')],
+    [InlineKeyboardButton(text="Изменить никнейм/ФИО", callback_data='change_nickname_ru')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])
+
+user_settings_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Тил алмаштыруу", callback_data='change_language_kg'),
+     InlineKeyboardButton(text="Номер алмаштыруу", callback_data='change_phone_number_kg')],
+    [InlineKeyboardButton(text="Менин статусум", callback_data='current_status_kg'),
+     InlineKeyboardButton(text="Колдоо кызматы", callback_data='helpdesk_kg')],
+    [InlineKeyboardButton(text="ФИО алмаштыруу", callback_data='change_nickname_kg')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])

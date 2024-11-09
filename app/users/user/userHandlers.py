@@ -1081,3 +1081,114 @@ async def vip_kg(callback_query: CallbackQuery, state: FSMContext):
         parse_mode=ParseMode.HTML
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'settings_ru')
+async def setting_user_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForUserSettingsRU,
+        caption="Выберите нужную вам команду",
+        reply_markup=kb.user_settings_ru
+    )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'settings_kg')
+async def setting_user_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForUserSettingsKG,
+        caption="Сизге керек команданы тандаңыз",
+        reply_markup=kb.user_settings_kg
+    )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'change_language_kg')
+async def change_language_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForChangeLanguaageKG,
+        caption="Сиз чындап тилди орус тилине алмаштырууну каалайсызбы?\n"
+                "Эгер кааласаңыз 'ru' деп жазыңыз, каалабасаңыз артка кайтууну басыңыз.",
+        reply_markup=kb.to_user_account_kg
+    )
+    await state.set_state(st.ChangeLanguageKG.write_ru)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ChangeLanguageKG.write_ru)
+async def change_language_kg_write_ru(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_telegram_id = message.from_user.id
+    input_user = message.text
+
+    if input_user == 'ru':
+        is_changed = await rq.set_user_language_to_ru(telegram_id=user_telegram_id)
+        if is_changed:
+            sent_message = await message.answer(
+                text="Сиздин тил орус тилине алмашылды.",
+                reply_markup=kb.to_user_account_ru
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Тилди алмаштырууда ката чыкты!",
+                reply_markup=kb.to_user_account_kg
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Сиз сөздү туура эмес жаздыңыз!",
+            reply_markup=kb.to_user_account_kg
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
+
+
+@router.callback_query(F.data == 'change_language_ru')
+async def change_language_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForChangeLanguaageRU,
+        caption="Вы уверены, что хотите сменить язык на кыргызский?\n"
+                "Если хотите, введите «kg», если нет, нажмите «Назад».",
+        reply_markup=kb.to_user_account_kg
+    )
+    await state.set_state(st.ChangeLanguageRU.write_kg)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ChangeLanguageRU.write_kg)
+async def change_language_ru_write_kg(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_telegram_id = message.from_user.id
+    input_user = message.text
+
+    if input_user == 'kg':
+        is_changed = await rq.set_user_language_to_kg(telegram_id=user_telegram_id)
+        if is_changed:
+            sent_message = await message.answer(
+                text="Ваш язык изменен на кыргызский.",
+                reply_markup=kb.to_user_account_kg
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Произошла ошибка при смене языка!",
+                reply_markup=kb.to_user_account_ru
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Вы неправильно написали слово!",
+            reply_markup=kb.to_user_account_ru
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
