@@ -608,3 +608,49 @@ async def update_user_phone_number(telegram_id: str, new_phone_number: str) -> b
     except Exception as e:
         print(f"Ошибка при обновлении номера телефона: {e}")
         return False
+
+
+# Функция для получения статуса пользователя по Telegram ID
+async def get_user_status_ru(telegram_id: str) -> str:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Извлекаем только subscription_status пользователя
+                result = await session.execute(
+                    select(User.subscription_status).where(User.telegram_id == telegram_id)
+                )
+                user_status = result.scalar()  # Получаем значение статуса
+
+                if user_status is None:
+                    return "Пользователь не найден"  # Если статус не найден
+
+                # Возвращаем статус пользователя
+                return "VIP" if user_status else "Обычный"  # Преобразуем статус в текст
+
+    except Exception as e:
+        print(f"Ошибка при получении статуса пользователя: {e}")
+        return "Ошибка"  # В случае ошибки возвращаем "Ошибка"
+
+
+# Функция для получения статуса пользователя по Telegram ID
+async def get_user_status_kg(telegram_id: str) -> str:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Извлекаем только subscription_status пользователя
+                result = await session.execute(
+                    select(User.subscription_status).where(User.telegram_id == telegram_id)
+                )
+                user_status = result.scalar()  # Получаем значение статуса
+
+                if user_status is None:
+                    return "Колдонуучу табылган жок"  # Если статус не найден
+
+                # Возвращаем статус пользователя
+                return "VIP" if user_status else "Жөнөкөй"  # Преобразуем статус в текст
+
+    except Exception as e:
+        print(f"Ошибка при получении статуса пользователя: {e}")
+        return "Ката!"  # В случае ошибки возвращаем "Ошибка"
+
+

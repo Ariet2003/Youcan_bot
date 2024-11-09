@@ -1290,3 +1290,62 @@ async def change_phone_number(message: Message, state: FSMContext):
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
     await state.clear()
+
+
+# Обработчик для кнопки "Текущий статус"
+@router.callback_query(F.data == 'current_status_ru')
+async def current_status_ru(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    # Получаем текущий статус пользователя из базы данных
+    user_status = await rq.get_user_status_ru(telegram_id)
+
+    # Проверяем статус и отправляем соответствующее сообщение
+    if user_status == "VIP":
+        status_message = (
+            f"Ваш текущий статус: VIP.\n"
+        )
+    elif user_status != "VIP":
+        status_message = (
+            f"Ваш текущий статус: Обычный.\n"
+        )
+    else:
+        status_message = "Статус не найден. Возможно, вы не зарегистрированы."
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForMyStatusRU,
+        caption=status_message,
+        reply_markup=kb.to_user_account_ru
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Обработчик для кнопки "Текущий статус"
+@router.callback_query(F.data == 'current_status_kg')
+async def current_status_kg(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    # Получаем текущий статус пользователя из базы данных
+    user_status = await rq.get_user_status_kg(telegram_id)
+
+    # Проверяем статус и отправляем соответствующее сообщение
+    if user_status == "VIP":
+        status_message = (
+            f"Сиздин статус: VIP.\n"
+        )
+    elif user_status != "VIP":
+        status_message = (
+            f"Сиздин статус: Жөнөкөй.\n"
+        )
+    else:
+        status_message = "Статус белгисиз. Балким, сиз регистрация болгон эмессиз."
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForMyStatusKG,
+        caption=status_message,
+        reply_markup=kb.to_user_account_kg
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
