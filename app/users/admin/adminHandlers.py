@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 from aiogram.enums import ParseMode
 from aiogram.types import Message, CallbackQuery
@@ -540,3 +541,60 @@ async def handle_search_input(message: Message, state: FSMContext):
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     await state.clear()  # Закрытие состояния после завершения поиска
+
+@router.callback_query(F.data == 'admin_settings')
+async def admin_settings(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.pictureForAdminSetting,
+        caption="Выберите команду.",
+        reply_markup=kb.admin_seeting
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'reset_all_vip_statuses')
+async def reset_all_vip_statuses(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+
+    sent_message = await callback_query.message.answer(
+        text=f"Вы действительно хотите сбросить VIP-статусы всех пользователей?\n"
+             f"Если да, введите текущие час и минуту в формате: 12:35",
+        reply_markup=kb.to_admin_account
+    )
+    await state.set_state(st.ResetVipStatus.confirm_time)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.ResetVipStatus.confirm_time)
+async def confirm_reset_vip_status(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+
+    user_input = message.text.strip()
+
+    current_time = datetime.now()
+    current_hour = current_time.strftime('%H')
+    current_minute = current_time.strftime('%M')
+    expected_time = f"{current_hour}:{current_minute}"
+
+    # Проверка времени
+    if user_input == expected_time:
+        # Обновление статуса всех пользователей в БД
+        await rq.reset_all_users_to_regular()
+        sent_message = await message.answer(
+            text="Все VIP-статусы успешно сброшены.",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    else:
+        sent_message = await message.answer(
+            text="Неверное время. Сброс VIP-статусов отменен.",
+            reply_markup=kb.to_admin_account
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+    # Очистка состояния
+    await state.clear()

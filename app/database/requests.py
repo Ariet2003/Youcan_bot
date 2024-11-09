@@ -456,3 +456,18 @@ async def search_users(search_query: str) -> list:
     except Exception as e:
         print(f"Ошибка при поиске пользователей: {e}")
         return []
+
+
+# Функция для сброса VIP-статусов в БД
+async def reset_all_users_to_regular():
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                await session.execute(
+                    update(User)
+                    .where(User.subscription_status == True)
+                    .values(subscription_status=False)
+                )
+                await session.commit()
+    except Exception as e:
+        print(f"Ошибка при сбросе VIP-статусов: {e}")

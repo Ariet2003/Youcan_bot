@@ -13,3 +13,6 @@ class DeleteUser(StatesGroup):
 
 class SearchUser(StatesGroup):
     user_search_input = State()
+
+class ResetVipStatus(StatesGroup):
+    confirm_time = State()
