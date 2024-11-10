@@ -194,3 +194,39 @@ def rating_buttons_other_pages_ru(page: int) -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="➡️", callback_data=f"rating_page_{page + 1}")],
         [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
     ])
+
+# Клавиатура для всех других страниц рейтинга
+def rating_buttons_last_page_ru(page: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️", callback_data=f"rating_page_{page - 1}"),
+         InlineKeyboardButton(text="Гдя я?", callback_data=f"find_me_in_rating_ru"),
+         InlineKeyboardButton(text=" ", callback_data=f" ")],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])
+
+# Клавиатура для первой страницы рейтинга
+def rating_buttons_first_page_kg(page: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=" ", callback_data=f" "),
+         InlineKeyboardButton(text="Мени тап", callback_data=f"find_me_in_rating_kg"),
+         InlineKeyboardButton(text="➡️", callback_data=f"kg_rating_page_{page + 1}")],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
+
+# Клавиатура для всех других страниц рейтинга
+def rating_buttons_other_pages_kg(page: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️", callback_data=f"kg_rating_page_{page - 1}"),
+         InlineKeyboardButton(text="Мени тап", callback_data=f"find_me_in_rating_kg"),
+         InlineKeyboardButton(text="➡️", callback_data=f"kg_rating_page_{page + 1}")],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
+
+# Клавиатура для всех других страниц рейтинга
+def rating_buttons_last_page_kg(page: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️", callback_data=f"kg_rating_page_{page - 1}"),
+         InlineKeyboardButton(text="Мени тап", callback_data=f"find_me_in_rating_kg"),
+         InlineKeyboardButton(text=" ", callback_data=f" ")],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
