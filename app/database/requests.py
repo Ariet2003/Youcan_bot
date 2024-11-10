@@ -3,7 +3,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import async_session
-from app.database.models import User, Admin, Question, Notification, Duel
+from app.database.models import User, Admin, Question, Notification, Duel, UserAnswer
 from app.users.user import userKeyboards as kb
 from bot_instance import bot
 from sqlalchemy import select, delete
@@ -756,4 +756,183 @@ async def get_user_rank(telegram_id: str) -> Optional[int]:
                 return rank
     except Exception as e:
         print(f"Ошибка при получении ранга пользователя: {e}")
+        return None
+
+
+# _______________________________________________________________________________
+
+# Запрос для получения индекса последнего сданного вопроса по telegram_id и subject_id
+async def get_last_answered_question_index(telegram_id: str, subject_id: int) -> Optional[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Подзапрос для получения user_id по telegram_id
+                user_id_subquery = select(User.user_id).where(User.telegram_id == telegram_id).scalar_subquery()
+
+                # Основной запрос для получения максимального question_id по subject_id для пользователя
+                result = await session.execute(
+                    select(func.max(UserAnswer.question_id))
+                    .join(Question, Question.question_id == UserAnswer.question_id)
+                    .where(
+                        UserAnswer.user_id == user_id_subquery,
+                        Question.subject_id == subject_id
+                    )
+                )
+                last_answered_question_id = result.scalar()  # Получаем последний question_id
+                return last_answered_question_id if last_answered_question_id is not None else 0
+    except Exception as e:
+        print(f"Ошибка при получении индекса последнего сданного вопроса: {e}")
+        return None
+
+
+async def get_next_question(last_answered_question_id: int, subject_id: int):
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Получаем следующий вопрос по subject_id, начиная с вопроса после последнего сданного
+                result = await session.execute(
+                    select(Question)
+                    .where(Question.subject_id == subject_id, Question.question_id > last_answered_question_id)
+                    .order_by(Question.question_id)
+                    .limit(1)
+                )
+                question = result.scalar_one_or_none()  # Получаем первый подходящий вопрос
+                if question:
+                    return {
+                        'question_id': question.question_id,
+                        'content': question.content,
+                        'option_a': question.option_a,
+                        'option_b': question.option_b,
+                        'option_v': question.option_v,
+                        'option_g': question.option_g,
+                        'correct_option': question.correct_option
+                    }
+                return None
+    except Exception as e:
+        print(f"Ошибка при получении следующего вопроса: {e}")
+        return None
+
+
+async def check_answer(question_id: int, selected_option: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Выполняем запрос, чтобы получить правильный ответ для заданного question_id
+                result = await session.execute(
+                    select(Question.correct_option)
+                    .where(Question.question_id == question_id)
+                )
+
+                correct_option = result.scalar()  # Получаем правильный ответ
+
+                if correct_option is None:
+                    # Если вопрос не найден
+                    return False
+
+                # Проверяем, соответствует ли выбранный вариант правильному
+                return selected_option == correct_option
+    except Exception as e:
+        print(f"Ошибка при проверке ответа: {e}")
+        return False
+
+
+# Запрос для получения вопроса, вариантов и правильного ответа по question_id
+async def get_question_and_options(question_id: int) -> Optional[dict]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Основной запрос для получения вопроса и вариантов
+                result = await session.execute(
+                    select(Question.content, Question.option_a, Question.option_b,
+                           Question.option_v, Question.option_g, Question.correct_option)
+                    .where(Question.question_id == question_id)
+                )
+
+                question_data = result.fetchone()
+
+                if question_data:
+                    question = {
+                        "question": question_data[0],
+                        "option_a": question_data[1],
+                        "option_b": question_data[2],
+                        "option_v": question_data[3],
+                        "option_g": question_data[4],
+                        "correct_option": question_data[5]
+                    }
+                    return question
+                else:
+                    return None
+    except Exception as e:
+        print(f"Ошибка при получении вопроса и вариантов: {e}")
+        return None
+
+
+# Запрос для обновления количества рубинов для пользователя по telegram_id
+async def update_rubies(telegram_id: str, rubies_to_add: int) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Запрос для получения пользователя по telegram_id
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+
+                user = result.scalar()
+
+                if user:
+                    # Обновляем количество рубинов
+                    user.rubies += rubies_to_add
+
+                    # Сохраняем изменения
+                    await session.commit()
+                    return True  # Успешно обновлено
+                else:
+                    return False  # Пользователь не найден
+    except Exception as e:
+        print(f"Ошибка при обновлении рубинов: {e}")
+        return False  # Ошибка
+
+# Запрос для записи ответа пользователя в таблицу user_answers
+async def record_user_answer(user_id: int, question_id: int, chosen_option: str, is_correct: bool, rubies_earned: int) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Создаем новый объект UserAnswer
+                user_answer = UserAnswer(
+                    user_id=user_id,
+                    question_id=question_id,
+                    chosen_option=chosen_option,
+                    is_correct=is_correct,
+                    rubies_earned=rubies_earned,
+                    answered_at=get_current_time()
+                )
+
+                # Добавляем новый ответ в сессию
+                session.add(user_answer)
+
+                # Сохраняем изменения в базе данных
+                await session.commit()
+                return True  # Успешно добавлено
+    except Exception as e:
+        print(f"Ошибка при записи ответа пользователя: {e}")
+        return False  # Ошибка
+
+
+# Запрос для получения user_id по telegram_id
+async def get_user_id_by_telegram_id(telegram_id: str) -> Optional[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Запрос для получения user_id по telegram_id
+                result = await session.execute(
+                    select(User.user_id)
+                    .where(User.telegram_id == telegram_id)
+                )
+                # Получаем результат
+                user_id = result.scalar()  # Получаем скалярное значение (первый элемент результата)
+
+                # Возвращаем user_id, если он найден, иначе None
+                return user_id if user_id else None
+    except Exception as e:
+        print(f"Ошибка при получении user_id по telegram_id: {e}")
         return None

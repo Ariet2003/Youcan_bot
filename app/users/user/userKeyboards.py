@@ -230,3 +230,28 @@ def rating_buttons_last_page_kg(page: int) -> InlineKeyboardMarkup:
          InlineKeyboardButton(text=" ", callback_data=f" ")],
         [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
     ])
+
+# _______________________________________________________________________________
+
+select_subject_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📋 Аналогия", callback_data='take_analogy_ru'),
+     InlineKeyboardButton(text="📜 Грамматика", callback_data='take_grammar_ru')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])
+
+select_subject_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📋 Аналогия", callback_data='take_analogy_kg'),
+     InlineKeyboardButton(text="📜 Грамматика", callback_data='take_grammar_kg')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])
+
+def generate_answer_keyboard_ru(question_id: int, option_a: str, option_b: str, option_v: str, option_g: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{option_a}", callback_data=f"question_{question_id}_A"),
+         InlineKeyboardButton(text=f"{option_b}", callback_data=f"question_{question_id}_B")],
+        [InlineKeyboardButton(text=f"{option_v}", callback_data=f"question_{question_id}_V"),
+         InlineKeyboardButton(text=f"{option_g}", callback_data=f"question_{question_id}_G")],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])
+    return keyboard
+
