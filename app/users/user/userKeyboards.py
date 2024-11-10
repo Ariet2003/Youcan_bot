@@ -176,3 +176,21 @@ whatsapp_button_without_text_ru = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Whatsapp", url=f"https://wa.me/{utils.PhoneNumberAdmin}")],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
 ])
+
+# Клавиатура для первой страницы рейтинга
+def rating_buttons_first_page_ru(page: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=" ", callback_data=f" "),
+         InlineKeyboardButton(text="Гдя я?", callback_data=f"find_me_in_rating_ru"),
+         InlineKeyboardButton(text="➡️", callback_data=f"rating_page_{page + 1}")],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])
+
+# Клавиатура для всех других страниц рейтинга
+def rating_buttons_other_pages_ru(page: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️", callback_data=f"rating_page_{page - 1}"),
+         InlineKeyboardButton(text="Гдя я?", callback_data=f"find_me_in_rating_ru"),
+         InlineKeyboardButton(text="➡️", callback_data=f"rating_page_{page + 1}")],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])

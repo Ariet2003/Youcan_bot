@@ -1500,3 +1500,62 @@ async def my_profile(callback_query: CallbackQuery):
         parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+# Хендлер для показа первой страницы рейтинга
+@router.callback_query(F.data == 'rating_ru')
+async def show_user_ranking(callback_query: CallbackQuery):
+    await display_ranking_page(callback_query, page=1)
+
+# Функция для отображения страницы рейтинга
+async def display_ranking_page(callback_query: CallbackQuery, page: int):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    page_size = 50
+    users = await rq.get_users_ranking(page, page_size)
+
+    if not users:
+        sent_message = await callback_query.message.answer(
+            text="Рейтинг пока недоступен.",
+            reply_markup=kb.to_user_account_ru)
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        # Формируем текст для вывода рейтинга
+        ranking_text = f"🌟 *РЕЙТИНГ ПОЛЬЗОВАТЕЛЕЙ* 🌟\n\nСтраница {page}:\n\n"
+        for idx, (name, rubies) in enumerate(users, start=(page - 1) * page_size + 1):
+            ranking_text += f"{idx}. _{name}_ : {rubies} 💎\n"
+
+        # Определяем, какую клавиатуру использовать в зависимости от страницы
+        if page == 1:
+            keyboard = kb.rating_buttons_first_page_ru(page)
+        else:
+            keyboard = kb.rating_buttons_other_pages_ru(page)
+
+        # Отправляем или обновляем сообщение с рейтингом
+        sent_message = await callback_query.message.answer(text=ranking_text, reply_markup=keyboard, parse_mode="Markdown")
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Хендлер для кнопок перехода по страницам
+@router.callback_query(lambda c: c.data and c.data.startswith("rating_page_"))
+async def handle_pagination(callback_query: CallbackQuery):
+    page = int(callback_query.data.split("_")[2])  # Извлекаем номер страницы из callback_data
+    await display_ranking_page(callback_query, page)
+
+# Хендлер для кнопки "Найти меня"
+@router.callback_query(F.data == 'find_me_in_rating_ru')
+async def find_user_in_ranking(callback_query: CallbackQuery):
+    telegram_id = callback_query.from_user.id
+    rank = await rq.get_user_rank(telegram_id)
+
+    if rank is None:
+        await callback_query.message.answer(
+            text="Не удалось найти ваш рейтинг.",
+            reply_markup=kb.to_user_account_ru)
+    else:
+        # Рассчитываем страницу пользователя
+        page_size = 50
+        user_page = (rank - 1) // page_size + 1
+
+        # Переходим на страницу пользователя в рейтинге
+        await display_ranking_page(callback_query, page=user_page)

@@ -717,3 +717,43 @@ async def get_user_profile_data(telegram_id: str):
     except Exception as e:
         print(f"Ошибка при получении данных пользователя: {e}")
         return None  # В случае ошибки возвращаем None
+
+
+# Функция для получения рейтинга пользователей с учетом пагинации
+async def get_users_ranking(page: int, page_size: int = 50):
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                offset = (page - 1) * page_size  # Определяем отступ для текущей страницы
+
+                # Извлекаем пользователей, сортируя по рубинам в порядке убывания
+                result = await session.execute(
+                    select(User.name, User.rubies)
+                    .order_by(User.rubies.desc())
+                    .offset(offset)
+                    .limit(page_size)
+                )
+
+                # Получаем список пользователей с количеством рубинов
+                users = result.all()
+                return users  # Список пользователей для текущей страницы
+
+    except Exception as e:
+        print(f"Ошибка при получении рейтинга пользователей: {e}")
+        return []
+
+# Запрос для получения ранга пользователя по telegram_id
+async def get_user_rank(telegram_id: str) -> Optional[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Считаем количество пользователей с большим количеством рубинов
+                rank_result = await session.execute(
+                    select(func.count())
+                    .where(User.rubies > (select(User.rubies).where(User.telegram_id == telegram_id).scalar_subquery()))
+                )
+                rank = rank_result.scalar() + 1  # Получаем текущий ранг пользователя
+                return rank
+    except Exception as e:
+        print(f"Ошибка при получении ранга пользователя: {e}")
+        return None
