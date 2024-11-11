@@ -276,3 +276,35 @@ next_analogy_grammar_button = InlineKeyboardMarkup(inline_keyboard=[
      InlineKeyboardButton(text="Следующий ➡️", callback_data='next_grammar_question')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
 ])
+
+def generate_answer_keyboard_kg_analogy(question_id: int, option_a: str, option_b: str, option_v: str, option_g: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{option_a}", callback_data=f"kg_analogy_question_{question_id}_A"),
+         InlineKeyboardButton(text=f"{option_b}", callback_data=f"kg_analogy_question_{question_id}_B")],
+        [InlineKeyboardButton(text=f"{option_v}", callback_data=f"kg_analogy_question_{question_id}_V"),
+         InlineKeyboardButton(text=f"{option_g}", callback_data=f"kg_analogy_question_{question_id}_G")],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
+    return keyboard
+
+next_analogy_question_kg_button = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="✨ Суроону талдоо", callback_data='analysis_of_the_issue'),
+     InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_analogy_kg_question')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])
+
+def generate_answer_keyboard_kg_grammar(question_id: int, option_a: str, option_b: str, option_v: str, option_g: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{option_a}", callback_data=f"kg_grammar_question_{question_id}_A"),
+         InlineKeyboardButton(text=f"{option_b}", callback_data=f"kg_grammar_question_{question_id}_B")],
+        [InlineKeyboardButton(text=f"{option_v}", callback_data=f"kg_grammar_question_{question_id}_V"),
+         InlineKeyboardButton(text=f"{option_g}", callback_data=f"kg_grammar_question_{question_id}_G")],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
+    return keyboard
+
+next_grammar_kg_button = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="✨ Суроону талдоо", callback_data='analysis_of_the_issue'),
+     InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_grammar_question_kg')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])

@@ -1636,7 +1636,9 @@ async def find_user_in_ranking_kg(callback_query: CallbackQuery):
         await display_ranking_page_kg(callback_query, page=user_page)
 
 
-# _______________________________________________________________________________
+#################################################################################
+#                  Passing the test in Russian                                  #
+#################################################################################
 @router.callback_query(F.data == 'take_test_ru')
 async def take_test_ru(callback_query: CallbackQuery):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
@@ -1648,18 +1650,8 @@ async def take_test_ru(callback_query: CallbackQuery):
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
-@router.callback_query(F.data == 'take_test_kg')
-async def take_test_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
-    sent_message = await callback_query.message.answer_photo(
-        photo=utils.PictureForTakeTheTestKG,
-        caption="Кайсы категориядан тест өтөсүз?",
-        reply_markup=kb.select_subject_kg
-    )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
-
+# Passing the analogy test in Russian
 @router.callback_query(F.data == 'take_analogy_ru')
 async def start_analogy_test(callback_query: CallbackQuery):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
@@ -1929,3 +1921,290 @@ async def check_the_correctness(callback_query: CallbackQuery):
 @router.callback_query(F.data == 'next_grammar_question')
 async def next_grammar_question(callback_query: CallbackQuery):
     await start_grammar_test(callback_query)
+
+
+
+#################################################################################
+#                     Passing the test in Kyrgyz                                #
+#################################################################################
+
+@router.callback_query(F.data == 'take_test_kg')
+async def take_test_kg(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForTakeTheTestKG,
+        caption="Кайсы категориядан тест өтөсүз?",
+        reply_markup=kb.select_subject_kg
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+# Passing the analogy test in Kyrgyz
+@router.callback_query(F.data == 'take_analogy_kg')
+async def start_analogy_test_kg(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    # Получаем индекс последнего сданного вопроса
+    last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=4)
+
+    # Получаем следующий вопрос, основываясь на последнем сданном
+    next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=4)
+
+    if next_question:
+        # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+        question_text = f"*Жуп:* {next_question['content']}\n"
+
+        # Генерируем клавиатуру с вариантами ответов
+        keyboard = kb.generate_answer_keyboard_kg_analogy(
+            question_id=next_question['question_id'],
+            option_a=next_question['option_a'],
+            option_b=next_question['option_b'],
+            option_v=next_question['option_v'],
+            option_g=next_question['option_g']
+        )
+
+        sent_message = await callback_query.message.answer_photo(
+            photo=utils.PictureForTakeAnalogyQuestionKG,
+            caption=question_text,
+            reply_markup=keyboard, # Отправляем сообщение с клавиатурой
+            parse_mode=ParseMode.MARKDOWN
+        )
+    else:
+        # Если нет следующего вопроса, сообщаем пользователю
+        sent_message = await callback_query.message.answer_photo(
+            photo=utils.PictureForTakeAnalogyQuestionKG,
+            caption="Сиз аналогиянын бардык тестин өтүп бүттүңүз!\n"
+                    "Кичине убакыт өткөн соң кайра кирип көрүңүз..",
+            reply_markup=kb.to_user_account_kg
+        )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data.startswith("kg_analogy_question_"))
+async def check_the_correctness(callback_query: CallbackQuery):
+    # Добавление ID сообщения пользователя в список
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+
+    # Удаление предыдущих сообщений
+    await delete_previous_messages(callback_query.message)
+
+    # Извлекаем данные из callback_data, например, 'question_123_A'
+    callback_data = callback_query.data
+    parts = callback_data.split('_')  # Разделяем строку по символу '_'
+
+    if len(parts) >= 3:
+        question_id = int(parts[3])  # Вторая часть после 'question'
+        selected_option = parts[4]  # Третья часть (A, B, C, D)
+
+        # Преобразуем английские буквы в кириллические
+        if selected_option == "A":
+            selected_option = "А"
+        elif selected_option == "B":
+            selected_option = "Б"
+        elif selected_option == "V":
+            selected_option = "В"
+        elif selected_option == "G":
+            selected_option = "Г"
+
+        # Получаем вопрос и варианты из БД
+        question_data = await rq.get_question_and_options(question_id)
+
+        if question_data:
+            # Проверяем правильность ответа
+            is_correct = await rq.check_answer(question_id, selected_option)
+
+            # Формируем текст для отображения правильности ответа
+            if is_correct:
+                is_update_rubin = await rq.update_rubies(telegram_id=callback_query.from_user.id, rubies_to_add=1)
+
+                if is_update_rubin:
+                    user_id = await rq.get_user_id_by_telegram_id(callback_query.from_user.id)
+                    is_update_user_answer = await rq.record_user_answer(
+                        user_id=user_id,
+                        question_id=question_id,
+                        chosen_option=selected_option,
+                        is_correct=is_correct,
+                        rubies_earned=1)
+                    if is_update_user_answer:
+                        feedback_text = (f"Сиздин жооп ({question_data['correct_option']}) туура!\n"
+                                         f"Сизге +1 💎 рубин кошулду.")
+                        photo = utils.PictureForCorrectAnswer
+                    else:
+                        feedback_text = (
+                            f"Тарыхчаны жаңыртууда ката кетти. Сураныч, тесттен чыгып, ага кайрадан кириңиз.")
+                else:
+                    feedback_text = (f"Рубиндерди кошууда ката кетти. Сураныч, тесттен чыгып, ага кайрадан кириңиз.")
+            else:
+                user_id = await rq.get_user_id_by_telegram_id(callback_query.from_user.id)
+                is_update_user_answer = await rq.record_user_answer(
+                    user_id=user_id,
+                    question_id=question_id,
+                    chosen_option=selected_option,
+                    is_correct=is_correct,
+                    rubies_earned=0)
+                if is_update_user_answer:
+                    feedback_text = f"Сиздин жооп туура эмес! Туура жооп: {question_data['correct_option']}"
+                    photo = utils.PictureForWrongAnswer
+                else:
+                    feedback_text = (
+                        f"Тарыхчаны жаңыртууда ката кетти. Сураныч, тесттен чыгып, ага кайрадан кириңиз.")
+
+            # Формируем текст вопроса и вариантов
+            question_text = f"Жуп: {question_data['question']}\n" \
+                            f"А) {question_data['option_a']}\n" \
+                            f"Б) {question_data['option_b']}\n" \
+                            f"В) {question_data['option_v']}\n" \
+                            f"Г) {question_data['option_g']}\n"
+
+            # Отправляем ответ с результатом и вопросом
+            sent_message = await callback_query.message.answer_photo(
+                photo=photo,
+                caption=f"{question_text}\n_{feedback_text}_",
+                reply_markup=kb.next_analogy_question_kg_button,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'next_analogy_kg_question')
+async def next_analogy_kg_question(callback_query: CallbackQuery):
+    await start_analogy_test_kg(callback_query)
+
+
+@router.callback_query(F.data == 'take_grammar_kg')
+async def start_grammar_test_kg(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    # Получаем индекс последнего сданного вопроса
+    last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=2)
+
+    # Получаем следующий вопрос, основываясь на последнем сданном
+    next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=2)
+
+    if next_question:
+        # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+        question_text = (f"*Суроо:* {next_question['content']}\n\n"
+                         f"_А) {next_question['option_a']}_\n"
+                         f"_Б) {next_question['option_b']}_\n"
+                         f"_В) {next_question['option_v']}_\n"
+                         f"_Г) {next_question['option_g']}_\n")
+
+        # Генерируем клавиатуру с вариантами ответов
+        keyboard = kb.generate_answer_keyboard_kg_grammar(
+            question_id=next_question['question_id'],
+            option_a="А",
+            option_b="Б",
+            option_v="В",
+            option_g="Г"
+        )
+
+        sent_message = await callback_query.message.answer_photo(
+            photo=utils.PictureForTakeGrammarQuestionKG,
+            caption=question_text,
+            reply_markup=keyboard, # Отправляем сообщение с клавиатурой
+            parse_mode=ParseMode.MARKDOWN
+        )
+    else:
+        # Если нет следующего вопроса, сообщаем пользователю
+        sent_message = await callback_query.message.answer_photo(
+            photo=utils.PictureForTakeGrammarQuestionKG,
+            caption="Сиз грамматика боюнча бардык тестти өтүп бүттүңүз!\n"
+                    "Кичине убакыттан кийин кайра кирип көрүңүз..",
+            reply_markup=kb.to_user_account_kg
+        )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data.startswith("kg_grammar_question_"))
+async def check_the_correctness(callback_query: CallbackQuery):
+    # Добавление ID сообщения пользователя в список
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+
+    # Удаление предыдущих сообщений
+    await delete_previous_messages(callback_query.message)
+
+    # Извлекаем данные из callback_data, например, 'question_123_A'
+    callback_data = callback_query.data
+    parts = callback_data.split('_')  # Разделяем строку по символу '_'
+
+    if len(parts) >= 3:
+        question_id = int(parts[3])  # Вторая часть после 'question'
+        selected_option = parts[4]  # Третья часть (A, B, C, D)
+
+        # Преобразуем английские буквы в кириллические
+        if selected_option == "A":
+            selected_option = "А"
+        elif selected_option == "B":
+            selected_option = "Б"
+        elif selected_option == "V":
+            selected_option = "В"
+        elif selected_option == "G":
+            selected_option = "Г"
+
+        # Получаем вопрос и варианты из БД
+        question_data = await rq.get_question_and_options(question_id)
+
+        if question_data:
+            # Проверяем правильность ответа
+            is_correct = await rq.check_answer(question_id, selected_option)
+
+            # Формируем текст для отображения правильности ответа
+            if is_correct:
+                is_update_rubin = await rq.update_rubies(telegram_id=callback_query.from_user.id, rubies_to_add=1)
+
+                if is_update_rubin:
+                    user_id = await rq.get_user_id_by_telegram_id(callback_query.from_user.id)
+                    is_update_user_answer = await rq.record_user_answer(
+                        user_id=user_id,
+                        question_id=question_id,
+                        chosen_option=selected_option,
+                        is_correct=is_correct,
+                        rubies_earned=1)
+                    if is_update_user_answer:
+                        feedback_text = (f"Сиздин жооп ({question_data['correct_option']}) туура!\n"
+                                         f"Сизге +1 💎 рубин кошулду.")
+                        photo = utils.PictureForCorrectAnswer
+                    else:
+                        feedback_text = (
+                            f"Тарыхчаны жаңыртууда ката кетти. Сураныч, тесттен чыгып, ага кайрадан кириңиз.")
+                else:
+                    feedback_text = (f"Рубиндерди кошууда ката кетти. Сураныч, тесттен чыгып, ага кайрадан кириңиз.")
+            else:
+                user_id = await rq.get_user_id_by_telegram_id(callback_query.from_user.id)
+                is_update_user_answer = await rq.record_user_answer(
+                    user_id=user_id,
+                    question_id=question_id,
+                    chosen_option=selected_option,
+                    is_correct=is_correct,
+                    rubies_earned=0)
+                if is_update_user_answer:
+                    feedback_text = f"Сиздин жооп туура эмес! Туура жооп: {question_data['correct_option']}"
+                    photo = utils.PictureForWrongAnswer
+                else:
+                    feedback_text = (
+                        f"Тарыхчаны жаңыртууда ката кетти. Сураныч, тесттен чыгып, ага кайрадан кириңиз.")
+
+            # Формируем текст вопроса и вариантов
+            question_text = f"Суроо: {question_data['question']}\n" \
+                            f"А) {question_data['option_a']}\n" \
+                            f"Б) {question_data['option_b']}\n" \
+                            f"В) {question_data['option_v']}\n" \
+                            f"Г) {question_data['option_g']}\n"
+
+            # Отправляем ответ с результатом и вопросом
+            sent_message = await callback_query.message.answer_photo(
+                photo=photo,
+                caption=f"{question_text}\n_{feedback_text}_",
+                reply_markup=kb.next_grammar_kg_button,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'next_grammar_question_kg')
+async def next_grammar_question_kg(callback_query: CallbackQuery):
+    await start_grammar_test_kg(callback_query)
