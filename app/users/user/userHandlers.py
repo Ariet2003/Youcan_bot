@@ -1661,7 +1661,7 @@ async def take_test_kg(callback_query: CallbackQuery):
 
 
 @router.callback_query(F.data == 'take_analogy_ru')
-async def start_analogy_test(callback_query: CallbackQuery, state: FSMContext):
+async def start_analogy_test(callback_query: CallbackQuery):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
     telegram_id = callback_query.from_user.id
@@ -1783,9 +1783,12 @@ async def check_the_correctness(callback_query: CallbackQuery):
             sent_message = await callback_query.message.answer_photo(
                 photo=photo,
                 caption=f"{question_text}\n_{feedback_text}_",
-                reply_markup=kb.to_user_account_ru,
+                reply_markup=kb.next_analogy_question_button,
                 parse_mode=ParseMode.MARKDOWN
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 
+@router.callback_query(F.data == 'next_analogy_question')
+async def next_analogy_question(callback_query: CallbackQuery):
+    await start_analogy_test(callback_query)

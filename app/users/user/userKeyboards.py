@@ -255,3 +255,8 @@ def generate_answer_keyboard_ru(question_id: int, option_a: str, option_b: str, 
     ])
     return keyboard
 
+next_analogy_question_button = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="✨ Разбор вопроса", callback_data='analysis_of_the_issue'),
+     InlineKeyboardButton(text="Следующий ➡️", callback_data='next_analogy_question')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])
