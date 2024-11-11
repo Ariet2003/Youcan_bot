@@ -792,7 +792,11 @@ async def get_next_question(last_answered_question_id: int, subject_id: int):
                 # Получаем следующий вопрос по subject_id, начиная с вопроса после последнего сданного
                 result = await session.execute(
                     select(Question)
-                    .where(Question.subject_id == subject_id, Question.question_id > last_answered_question_id)
+                    .where(
+                        Question.subject_id == subject_id,
+                        Question.question_id > last_answered_question_id,
+                        Question.status == "approved"  # Условие на статус
+                    )
                     .order_by(Question.question_id)
                     .limit(1)
                 )
