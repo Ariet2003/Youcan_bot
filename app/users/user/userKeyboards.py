@@ -308,3 +308,23 @@ next_grammar_kg_button = InlineKeyboardMarkup(inline_keyboard=[
      InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_grammar_question_kg')],
     [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
 ])
+
+take_the_test_again_analogy_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="↪️ Пройти тест заново", callback_data='take_the_test_again_analogy_ru')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])
+
+take_the_test_again_grammar_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="↪️ Пройти тест заново", callback_data='take_the_test_again_grammar_ru')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])
+
+take_the_test_again_analogy_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="↪️ Тестти кайрадан баштоо", callback_data='take_the_test_again_analogy_kg')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])
+
+take_the_test_again_grammar_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="↪️ Тестти кайрадан баштоо", callback_data='take_the_test_again_grammar_kg')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])

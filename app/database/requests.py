@@ -940,3 +940,37 @@ async def get_user_id_by_telegram_id(telegram_id: str) -> Optional[int]:
     except Exception as e:
         print(f"Ошибка при получении user_id по telegram_id: {e}")
         return None
+
+
+# Запрос для удаления всех пройденных вопросов пользователя по предмету из таблицы user_answers
+async def delete_completed_questions(subject_id: int, telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Получаем user_id по telegram_id
+                user_result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == telegram_id)
+                )
+                user = user_result.scalar_one_or_none()
+
+                if user is None:
+                    print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                    return False
+
+                # Удаляем ответы пользователя по заданному предмету
+                await session.execute(
+                    delete(UserAnswer)
+                    .where(
+                        UserAnswer.user_id == user,
+                        UserAnswer.question_id.in_(
+                            select(Question.question_id).where(Question.subject_id == subject_id)
+                        )
+                    )
+                )
+
+                # Фиксируем изменения в базе данных
+                await session.commit()
+                return True  # Успешно удалено
+    except Exception as e:
+        print(f"Ошибка при удалении пройденных вопросов: {e}")
+        return False  # Ошибка

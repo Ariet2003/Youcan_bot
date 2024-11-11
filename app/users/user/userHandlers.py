@@ -1,7 +1,6 @@
 import json
 import re
-
-
+from datetime import datetime
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram import F, Router
@@ -1687,9 +1686,10 @@ async def start_analogy_test(callback_query: CallbackQuery):
         # Если нет следующего вопроса, сообщаем пользователю
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForTakeAnalogyQuestionRU,
-            caption="Вы прошли все вопросы теста по аналогии!\n"
-                    "Вы можете попробовать вернуться немного позже..",
-            reply_markup=kb.to_user_account_ru
+            caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
+                    "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
+                    "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
+            reply_markup=kb.take_the_test_again_analogy_ru
         )
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -1826,9 +1826,10 @@ async def start_grammar_test(callback_query: CallbackQuery):
         # Если нет следующего вопроса, сообщаем пользователю
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForTakeGrammarQuestionRU,
-            caption="Вы прошли все вопросы теста по грамматики!\n"
-                    "Вы можете попробовать вернуться немного позже..",
-            reply_markup=kb.to_user_account_ru
+            caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
+                    "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
+                    "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
+            reply_markup=kb.take_the_test_again_grammar_ru
         )
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -1903,7 +1904,7 @@ async def check_the_correctness(callback_query: CallbackQuery):
                         f"Произошла ошибка при обновлении истории. Пожалуйста, выйдите из теста и войдите в него снова.")
 
             # Формируем текст вопроса и вариантов
-            question_text = f"Пара: {question_data['question']}\n" \
+            question_text = f"Вопрос: {question_data['question']}\n" \
                             f"А) {question_data['option_a']}\n" \
                             f"Б) {question_data['option_b']}\n" \
                             f"В) {question_data['option_v']}\n" \
@@ -1975,9 +1976,10 @@ async def start_analogy_test_kg(callback_query: CallbackQuery):
         # Если нет следующего вопроса, сообщаем пользователю
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForTakeAnalogyQuestionKG,
-            caption="Сиз аналогиянын бардык тестин өтүп бүттүңүз!\n"
-                    "Кичине убакыт өткөн соң кайра кирип көрүңүз..",
-            reply_markup=kb.to_user_account_kg
+            caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
+                    "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
+                    "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
+            reply_markup=kb.take_the_test_again_analogy_kg
         )
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -2112,9 +2114,10 @@ async def start_grammar_test_kg(callback_query: CallbackQuery):
         # Если нет следующего вопроса, сообщаем пользователю
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForTakeGrammarQuestionKG,
-            caption="Сиз грамматика боюнча бардык тестти өтүп бүттүңүз!\n"
-                    "Кичине убакыттан кийин кайра кирип көрүңүз..",
-            reply_markup=kb.to_user_account_kg
+            caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
+                    "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
+                    "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
+            reply_markup=kb.take_the_test_again_grammar_kg
         )
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -2208,3 +2211,201 @@ async def check_the_correctness(callback_query: CallbackQuery):
 @router.callback_query(F.data == 'next_grammar_question_kg')
 async def next_grammar_question_kg(callback_query: CallbackQuery):
     await start_grammar_test_kg(callback_query)
+
+# Take the russian analogy test again
+@router.callback_query(F.data == 'take_the_test_again_analogy_ru')
+async def take_the_test_analogy_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer(
+        text="Если вы действительно хотите сбросить прогресс и начать тест заново, "
+             "введите текущее время в формате чч:мм, например, 12:34.",
+        reply_markup=kb.to_user_account_ru
+    )
+
+    await state.set_state(st.TakeTheRussianAnalogyTestAgain.enter_time)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.TakeTheRussianAnalogyTestAgain.enter_time)
+async def take_the_test_analogy_ru_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_input = message.text
+
+    current_time = datetime.now()
+    current_hour = current_time.strftime('%H')
+    current_minute = current_time.strftime('%M')
+    expected_time = f"{current_hour}:{current_minute}"
+    user_telegram_id = message.from_user.id
+
+    # Проверка времени
+    if user_input == expected_time:
+        is_deleted_data = await rq.delete_completed_questions(subject_id=3, telegram_id=user_telegram_id)
+        if is_deleted_data:
+            sent_message = await message.answer(
+                text="Ваши данные о прохождении теста сброшены. Вы можете начать тест заново.",
+                reply_markup=kb.to_user_account_ru
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Произошла ошибка при сбросе данных о прохождении теста. Пожалуйста, попробуйте снова.",
+                reply_markup=kb.to_user_account_ru
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Неверное время. Сброс теста отменен.",
+            reply_markup=kb.to_user_account_ru
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
+
+
+# Take the russian grammar test again
+@router.callback_query(F.data == 'take_the_test_again_grammar_ru')
+async def take_the_test_grammar_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer(
+        text="Если вы действительно хотите сбросить прогресс и начать тест заново, "
+             "введите текущее время в формате чч:мм, например, 12:34.",
+        reply_markup=kb.to_user_account_ru
+    )
+
+    await state.set_state(st.TakeTheRussianGrammarTestAgain.enter_time)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.TakeTheRussianGrammarTestAgain.enter_time)
+async def take_the_test_grammar_ru_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_input = message.text
+
+    current_time = datetime.now()
+    current_hour = current_time.strftime('%H')
+    current_minute = current_time.strftime('%M')
+    expected_time = f"{current_hour}:{current_minute}"
+    user_telegram_id = message.from_user.id
+
+    # Проверка времени
+    if user_input == expected_time:
+        is_deleted_data = await rq.delete_completed_questions(subject_id=1, telegram_id=user_telegram_id)
+        if is_deleted_data:
+            sent_message = await message.answer(
+                text="Ваши данные о прохождении теста сброшены. Вы можете начать тест заново.",
+                reply_markup=kb.to_user_account_ru
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Произошла ошибка при сбросе данных о прохождении теста. Пожалуйста, попробуйте снова.",
+                reply_markup=kb.to_user_account_ru
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Неверное время. Сброс теста отменен.",
+            reply_markup=kb.to_user_account_ru
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
+
+# Take the kyrgyz analogy test again
+@router.callback_query(F.data == 'take_the_test_again_analogy_kg')
+async def take_the_test_analogy_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer(
+        text="Эгерде сиз чын эле прогрессти өчүрүп, тестти кайра баштагыңыз келсе, "
+             "анда учурдагы убакытты саат:мүнөт форматында жазыңыз, мисалы, 12:34.",
+        reply_markup=kb.to_user_account_kg
+    )
+
+    await state.set_state(st.TakeTheKyrgyzAnalogyTestAgain.enter_time)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.TakeTheKyrgyzAnalogyTestAgain.enter_time)
+async def take_the_test_analogy_kg_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_input = message.text
+
+    current_time = datetime.now()
+    current_hour = current_time.strftime('%H')
+    current_minute = current_time.strftime('%M')
+    expected_time = f"{current_hour}:{current_minute}"
+    user_telegram_id = message.from_user.id
+
+    # Проверка времени
+    if user_input == expected_time:
+        is_deleted_data = await rq.delete_completed_questions(subject_id=4, telegram_id=user_telegram_id)
+        if is_deleted_data:
+            sent_message = await message.answer(
+                text="Сиздин өткөн тесттер тууралуу маалыматыңыз өчүрүлдү. Сиз тестти кайра баштасаңыз болот.",
+                reply_markup=kb.to_user_account_kg
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Сиздин өткөн тесттер тууралуу маалыматты өчүрүүдө ката кетти. Кайрадан аракет кылып көрүңүз.",
+                reply_markup=kb.to_user_account_kg
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Убакытты туура эмес жаздыңыз, өткөн тесттер тууралуу маалымат өчүрүлгөн жок.",
+            reply_markup=kb.to_user_account_kg
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()
+
+
+# Take the kyrgyz grammar test again
+@router.callback_query(F.data == 'take_the_test_again_grammar_kg')
+async def take_the_test_grammar_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    sent_message = await callback_query.message.answer(
+        text="Эгерде сиз чын эле прогрессти өчүрүп, тестти кайра баштагыңыз келсе, "
+             "анда учурдагы убакытты саат:мүнөт форматында жазыңыз, мисалы, 12:34.",
+        reply_markup=kb.to_user_account_kg
+    )
+
+    await state.set_state(st.TakeTheKyrgyzGrammarTestAgain.enter_time)
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.message(st.TakeTheKyrgyzGrammarTestAgain.enter_time)
+async def take_the_test_grammar_kg_finish(message: Message, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    await delete_previous_messages(message)
+    user_input = message.text
+
+    current_time = datetime.now()
+    current_hour = current_time.strftime('%H')
+    current_minute = current_time.strftime('%M')
+    expected_time = f"{current_hour}:{current_minute}"
+    user_telegram_id = message.from_user.id
+
+    # Проверка времени
+    if user_input == expected_time:
+        is_deleted_data = await rq.delete_completed_questions(subject_id=2, telegram_id=user_telegram_id)
+        if is_deleted_data:
+            sent_message = await message.answer(
+                text="Сиздин өткөн тесттер тууралуу маалыматыңыз өчүрүлдү. Сиз тестти кайра баштасаңыз болот.",
+                reply_markup=kb.to_user_account_kg
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await message.answer(
+                text="Сиздин өткөн тесттер тууралуу маалыматты өчүрүүдө ката кетти. Кайрадан аракет кылып көрүңүз.",
+                reply_markup=kb.to_user_account_kg
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await message.answer(
+            text="Убакытты туура эмес жаздыңыз, өткөн тесттер тууралуу маалымат өчүрүлгөн жок.",
+            reply_markup=kb.to_user_account_kg
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    await state.clear()

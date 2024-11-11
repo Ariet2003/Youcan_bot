@@ -50,3 +50,15 @@ class ChangeNicknameRU(StatesGroup):
 
 class ChangeNicknameKG(StatesGroup):
     enter_nickname_kg = State()
+
+class TakeTheRussianAnalogyTestAgain(StatesGroup):
+    enter_time = State()
+
+class TakeTheRussianGrammarTestAgain(StatesGroup):
+    enter_time = State()
+
+class TakeTheKyrgyzAnalogyTestAgain(StatesGroup):
+    enter_time = State()
+
+class TakeTheKyrgyzGrammarTestAgain(StatesGroup):
+    enter_time = State()
