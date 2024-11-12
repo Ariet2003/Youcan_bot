@@ -974,3 +974,55 @@ async def delete_completed_questions(subject_id: int, telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при удалении пройденных вопросов: {e}")
         return False  # Ошибка
+
+# Функция для проверки наличия объяснения в вопросе
+async def check_explanation_exists(question_id: int) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Выполняем запрос для проверки поля explanation
+                result = await session.execute(
+                    select(Question.explanation)
+                    .where(Question.question_id == question_id)
+                )
+                explanation = result.scalar_one_or_none()
+
+                # Возвращаем False, если explanation пустое, иначе True
+                return bool(explanation)
+    except Exception as e:
+        print(f"Ошибка при проверке наличия объяснения: {e}")
+        return False
+
+# Функция для получения объяснения по question_id
+async def get_explanation_by_question_id(question_id: int) -> Optional[str]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Выполняем запрос для получения поля explanation
+                result = await session.execute(
+                    select(Question.explanation)
+                    .where(Question.question_id == question_id)
+                )
+                explanation = result.scalar_one_or_none()
+
+                # Возвращаем значение explanation, если оно есть
+                return explanation
+    except Exception as e:
+        print(f"Ошибка при получении объяснения: {e}")
+        return None
+
+
+# Функция для добавления значения в поле explanation по question_id
+async def update_explanation_by_question_id(question_id: int, explanation_text: str):
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Обновляем поле explanation для указанного question_id
+                await session.execute(
+                    update(Question)
+                    .where(Question.question_id == question_id)
+                    .values(explanation=explanation_text)
+                )
+                await session.commit()  # Сохраняем изменения
+    except Exception as e:
+        print(f"Ошибка при обновлении explanation: {e}")

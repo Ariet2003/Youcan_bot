@@ -13,6 +13,7 @@ from app.users.user import userStates as st
 import app.users.user.userKeyboards as kb
 from app import utils
 from aiogram.enums import ParseMode
+from app.ai_module import chatgpt_request as gpt
 
 
 
@@ -2414,67 +2415,140 @@ async def take_the_test_grammar_kg_finish(message: Message, state: FSMContext):
 async def analysis_of_the_issue(callback_query: CallbackQuery):
     # take_the_test_again_analogy_kg_3
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+
     callback_data = callback_query.data
     parts = callback_data.split('_')
     question_id = int(parts[6])
     question_type = parts[5]
     question_language = parts[4]
+    explanation_text_for_user = ""
 
+    is_explanation = await rq.check_explanation_exists(question_id=question_id)
 
-    if question_language == "kg":
-        question_data = await rq.get_question_and_options(question_id)
-        if question_type == "analogy":
-            if question_data:
-                question_text = f"Негизги жуп: {question_data['question']}\n" \
-                                f"А) {question_data['option_a']}\n" \
-                                f"Б) {question_data['option_b']}\n" \
-                                f"В) {question_data['option_v']}\n" \
-                                f"Г) {question_data['option_g']}\n\n"\
-                                f"Туура жооп: {question_data['correct_option']}"
-                prompt_for_gpt = (f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestion}\n\n"
-                                  f"{question_text}\n\n"
-                                  f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestionEnd}")
+    if not is_explanation:
+        if question_language == "kg":
+            question_data = await rq.get_question_and_options(question_id)
+            if question_type == "analogy":
+                if question_data:
+                    question_text = f"Негизги жуп: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n"\
+                                    f"Туура жооп: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    prompt_for_gpt = (f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestion}\n\n"
+                                      f"{question_text}\n\n"
+                                      f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestionEnd}")
 
-                print(prompt_for_gpt)
-        elif question_type == "grammar":
-            if question_data:
-                question_text = f"Суроо: {question_data['question']}\n" \
-                                f"А) {question_data['option_a']}\n" \
-                                f"Б) {question_data['option_b']}\n" \
-                                f"В) {question_data['option_v']}\n" \
-                                f"Г) {question_data['option_g']}\n\n" \
-                                f"Туура жооп: {question_data['correct_option']}"
-                prompt_for_gpt = (f"{utils.PromptForChatGPTForKyrgyzGrammarQuestion}\n\n"
-                                  f"{question_text}\n\n"
-                                  f"{utils.PromptForChatGPTForKyrgyzGrammarQuestionEnd}")
+                    response = await gpt.get_chatgpt_response(prompt_for_gpt)
+                    explanation_text_for_user += "\n\n" + response
+                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+            elif question_type == "grammar":
+                if question_data:
+                    question_text = f"Суроо: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n" \
+                                    f"Туура жооп: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    prompt_for_gpt = (f"{utils.PromptForChatGPTForKyrgyzGrammarQuestion}\n\n"
+                                      f"{question_text}\n\n"
+                                      f"{utils.PromptForChatGPTForKyrgyzGrammarQuestionEnd}")
 
-                print(prompt_for_gpt)
-    elif question_language == "ru":
-        question_data = await rq.get_question_and_options(question_id)
-        if question_type == "analogy":
-            if question_data:
-                question_text = f"Основная пара: {question_data['question']}\n" \
-                                f"А) {question_data['option_a']}\n" \
-                                f"Б) {question_data['option_b']}\n" \
-                                f"В) {question_data['option_v']}\n" \
-                                f"Г) {question_data['option_g']}\n\n"\
-                                f"Правильный ответ: {question_data['correct_option']}"
-                prompt_for_gpt = (f"{utils.PromptForChatGPTForRussianAnalogyQuestion}\n\n"
-                                  f"{question_text}\n\n"
-                                  f"{utils.PromptForChatGPTForRussianAnalogyQuestionEnd}")
+                    response = await gpt.get_chatgpt_response(prompt_for_gpt)
+                    explanation_text_for_user += "\n\n" + response
+                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+        elif question_language == "ru":
+            question_data = await rq.get_question_and_options(question_id)
+            if question_type == "analogy":
+                if question_data:
+                    question_text = f"Основная пара: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n"\
+                                    f"Правильный ответ: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    prompt_for_gpt = (f"{utils.PromptForChatGPTForRussianAnalogyQuestion}\n\n"
+                                      f"{question_text}\n\n"
+                                      f"{utils.PromptForChatGPTForRussianAnalogyQuestionEnd}")
 
-                print(prompt_for_gpt)
-        elif question_type == "grammar":
-            if question_data:
-                question_text = f"Вопрос: {question_data['question']}\n" \
-                                f"А) {question_data['option_a']}\n" \
-                                f"Б) {question_data['option_b']}\n" \
-                                f"В) {question_data['option_v']}\n" \
-                                f"Г) {question_data['option_g']}\n\n" \
-                                f"Правильный ответ: {question_data['correct_option']}"
-                prompt_for_gpt = (f"{utils.PromptForChatGPTForRussianGrammarQuestion}\n\n"
-                                  f"{question_text}\n\n"
-                                  f"{utils.PromptForChatGPTForRussianGrammarQuestionEnd}")
+                    response = await gpt.get_chatgpt_response(prompt_for_gpt)
+                    explanation_text_for_user += "\n\n" + response
+                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+            elif question_type == "grammar":
+                if question_data:
+                    question_text = f"Вопрос: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n" \
+                                    f"Правильный ответ: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    prompt_for_gpt = (f"{utils.PromptForChatGPTForRussianGrammarQuestion}\n\n"
+                                      f"{question_text}\n\n"
+                                      f"{utils.PromptForChatGPTForRussianGrammarQuestionEnd}")
 
-                print(prompt_for_gpt)
+                    response = await gpt.get_chatgpt_response(prompt_for_gpt)
+                    explanation_text_for_user += "\n\n" + response
+                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+        await delete_previous_messages(callback_query.message)
+        sent_message = await callback_query.message.answer(
+            text=f"In ai:\n{explanation_text_for_user}"
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        explanation = await rq.get_explanation_by_question_id(question_id=question_id)
+        if question_language == "kg":
+            question_data = await rq.get_question_and_options(question_id)
+            if question_type == "analogy":
+                if question_data:
+                    question_text = f"Негизги жуп: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n" \
+                                    f"Туура жооп: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    explanation_text_for_user += "\n\n" + explanation
+            elif question_type == "grammar":
+                if question_data:
+                    question_text = f"Суроо: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n" \
+                                    f"Туура жооп: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    explanation_text_for_user += "\n\n" + explanation
+
+        elif question_language == "ru":
+            question_data = await rq.get_question_and_options(question_id)
+            if question_type == "analogy":
+                if question_data:
+                    question_text = f"Основная пара: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n" \
+                                    f"Правильный ответ: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    explanation_text_for_user += "\n\n" + explanation
+            elif question_type == "grammar":
+                if question_data:
+                    question_text = f"Вопрос: {question_data['question']}\n" \
+                                    f"А) {question_data['option_a']}\n" \
+                                    f"Б) {question_data['option_b']}\n" \
+                                    f"В) {question_data['option_v']}\n" \
+                                    f"Г) {question_data['option_g']}\n\n" \
+                                    f"Правильный ответ: {question_data['correct_option']}"
+                    explanation_text_for_user += question_text
+                    explanation_text_for_user += "\n\n" + explanation
+        await delete_previous_messages(callback_query.message)
+        sent_message = await callback_query.message.answer(
+            text=f"In db:\n{explanation_text_for_user}"
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
