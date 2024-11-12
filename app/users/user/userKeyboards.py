@@ -255,11 +255,13 @@ def generate_answer_keyboard_ru(question_id: int, option_a: str, option_b: str, 
     ])
     return keyboard
 
-next_analogy_question_button = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="✨ Разбор вопроса", callback_data='analysis_of_the_issue'),
-     InlineKeyboardButton(text="Следующий ➡️", callback_data='next_analogy_question')],
-    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
-])
+def next_analogy_question_button(question_id: int):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✨ Разбор вопроса", callback_data=f'analysis_of_the_issue_ru_analogy_{question_id}'),
+         InlineKeyboardButton(text="Следующий ➡️", callback_data='next_analogy_question')],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])
+    return keyboard
 
 def generate_answer_keyboard_ru_grammar(question_id: int, option_a: str, option_b: str, option_v: str, option_g: str) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -271,11 +273,13 @@ def generate_answer_keyboard_ru_grammar(question_id: int, option_a: str, option_
     ])
     return keyboard
 
-next_analogy_grammar_button = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="✨ Разбор вопроса", callback_data='analysis_of_the_issue'),
-     InlineKeyboardButton(text="Следующий ➡️", callback_data='next_grammar_question')],
-    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
-])
+def next_analogy_grammar_button(question_id: int):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✨ Разбор вопроса", callback_data=f'analysis_of_the_issue_ru_grammar_{question_id}'),
+         InlineKeyboardButton(text="Следующий ➡️", callback_data='next_grammar_question')],
+        [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+    ])
+    return keyboard
 
 def generate_answer_keyboard_kg_analogy(question_id: int, option_a: str, option_b: str, option_v: str, option_g: str) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -287,11 +291,13 @@ def generate_answer_keyboard_kg_analogy(question_id: int, option_a: str, option_
     ])
     return keyboard
 
-next_analogy_question_kg_button = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="✨ Суроону талдоо", callback_data='analysis_of_the_issue'),
-     InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_analogy_kg_question')],
-    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
-])
+def next_analogy_question_kg_button(question_id: int):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✨ Суроону талдоо", callback_data=f'analysis_of_the_issue_kg_analogy_{question_id}'),
+         InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_analogy_kg_question')],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
+    return keyboard
 
 def generate_answer_keyboard_kg_grammar(question_id: int, option_a: str, option_b: str, option_v: str, option_g: str) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -303,11 +309,13 @@ def generate_answer_keyboard_kg_grammar(question_id: int, option_a: str, option_
     ])
     return keyboard
 
-next_grammar_kg_button = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="✨ Суроону талдоо", callback_data='analysis_of_the_issue'),
-     InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_grammar_question_kg')],
-    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
-])
+def next_grammar_kg_button(question_id: int):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✨ Суроону талдоо", callback_data=f'analysis_of_the_issue_kg_grammar_{question_id}'),
+         InlineKeyboardButton(text="Кийинки ➡️", callback_data='next_grammar_question_kg')],
+        [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+    ])
+    return keyboard
 
 take_the_test_again_analogy_ru = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="↪️ Пройти тест заново", callback_data='take_the_test_again_analogy_ru')],

@@ -1775,7 +1775,7 @@ async def check_the_correctness(callback_query: CallbackQuery):
             sent_message = await callback_query.message.answer_photo(
                 photo=photo,
                 caption=f"{question_text}\n_{feedback_text}_",
-                reply_markup=kb.next_analogy_question_button,
+                reply_markup=kb.next_analogy_question_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -1914,7 +1914,7 @@ async def check_the_correctness(callback_query: CallbackQuery):
             sent_message = await callback_query.message.answer_photo(
                 photo=photo,
                 caption=f"{question_text}\n_{feedback_text}_",
-                reply_markup=kb.next_analogy_grammar_button,
+                reply_markup=kb.next_analogy_grammar_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -2065,7 +2065,7 @@ async def check_the_correctness(callback_query: CallbackQuery):
             sent_message = await callback_query.message.answer_photo(
                 photo=photo,
                 caption=f"{question_text}\n_{feedback_text}_",
-                reply_markup=kb.next_analogy_question_kg_button,
+                reply_markup=kb.next_analogy_question_kg_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -2203,7 +2203,7 @@ async def check_the_correctness(callback_query: CallbackQuery):
             sent_message = await callback_query.message.answer_photo(
                 photo=photo,
                 caption=f"{question_text}\n_{feedback_text}_",
-                reply_markup=kb.next_grammar_kg_button,
+                reply_markup=kb.next_grammar_kg_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -2409,3 +2409,72 @@ async def take_the_test_grammar_kg_finish(message: Message, state: FSMContext):
         )
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     await state.clear()
+
+@router.callback_query(lambda c: c.data.startswith("analysis_of_the_issue_"))
+async def analysis_of_the_issue(callback_query: CallbackQuery):
+    # take_the_test_again_analogy_kg_3
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[6])
+    question_type = parts[5]
+    question_language = parts[4]
+
+
+    if question_language == "kg":
+        question_data = await rq.get_question_and_options(question_id)
+        if question_type == "analogy":
+            if question_data:
+                question_text = f"Негизги жуп: {question_data['question']}\n" \
+                                f"А) {question_data['option_a']}\n" \
+                                f"Б) {question_data['option_b']}\n" \
+                                f"В) {question_data['option_v']}\n" \
+                                f"Г) {question_data['option_g']}\n\n"\
+                                f"Туура жооп: {question_data['correct_option']}"
+                prompt_for_gpt = (f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestion}\n\n"
+                                  f"{question_text}\n\n"
+                                  f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestionEnd}")
+
+                print(prompt_for_gpt)
+        elif question_type == "grammar":
+            if question_data:
+                question_text = f"Суроо: {question_data['question']}\n" \
+                                f"А) {question_data['option_a']}\n" \
+                                f"Б) {question_data['option_b']}\n" \
+                                f"В) {question_data['option_v']}\n" \
+                                f"Г) {question_data['option_g']}\n\n" \
+                                f"Туура жооп: {question_data['correct_option']}"
+                prompt_for_gpt = (f"{utils.PromptForChatGPTForKyrgyzGrammarQuestion}\n\n"
+                                  f"{question_text}\n\n"
+                                  f"{utils.PromptForChatGPTForKyrgyzGrammarQuestionEnd}")
+
+                print(prompt_for_gpt)
+    elif question_language == "ru":
+        question_data = await rq.get_question_and_options(question_id)
+        if question_type == "analogy":
+            if question_data:
+                question_text = f"Основная пара: {question_data['question']}\n" \
+                                f"А) {question_data['option_a']}\n" \
+                                f"Б) {question_data['option_b']}\n" \
+                                f"В) {question_data['option_v']}\n" \
+                                f"Г) {question_data['option_g']}\n\n"\
+                                f"Правильный ответ: {question_data['correct_option']}"
+                prompt_for_gpt = (f"{utils.PromptForChatGPTForRussianAnalogyQuestion}\n\n"
+                                  f"{question_text}\n\n"
+                                  f"{utils.PromptForChatGPTForRussianAnalogyQuestionEnd}")
+
+                print(prompt_for_gpt)
+        elif question_type == "grammar":
+            if question_data:
+                question_text = f"Вопрос: {question_data['question']}\n" \
+                                f"А) {question_data['option_a']}\n" \
+                                f"Б) {question_data['option_b']}\n" \
+                                f"В) {question_data['option_v']}\n" \
+                                f"Г) {question_data['option_g']}\n\n" \
+                                f"Правильный ответ: {question_data['correct_option']}"
+                prompt_for_gpt = (f"{utils.PromptForChatGPTForRussianGrammarQuestion}\n\n"
+                                  f"{question_text}\n\n"
+                                  f"{utils.PromptForChatGPTForRussianGrammarQuestionEnd}")
+
+                print(prompt_for_gpt)
