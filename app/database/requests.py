@@ -1026,3 +1026,32 @@ async def update_explanation_by_question_id(question_id: int, explanation_text: 
                 await session.commit()  # Сохраняем изменения
     except Exception as e:
         print(f"Ошибка при обновлении explanation: {e}")
+
+# Функция для проверки, правильно ли пользователь ответил на вопрос по question_id и user_telegram_id
+async def check_user_answer_correct(question_id: int, user_telegram_id: int) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим user_id по user_telegram_id
+                result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == user_telegram_id)
+                )
+                user_id = result.scalar_one_or_none()
+
+                if user_id is None:
+                    print("Пользователь не найден.")
+                    return False
+
+                # Проверяем, правильно ли ответил пользователь на указанный вопрос
+                result = await session.execute(
+                    select(UserAnswer.is_correct)
+                    .where(UserAnswer.question_id == question_id, UserAnswer.user_id == user_id)
+                )
+                is_correct = result.scalar_one_or_none()
+
+                # Возвращаем True, если ответ правильный, иначе False
+                return bool(is_correct)
+    except Exception as e:
+        print(f"Ошибка при проверке правильности ответа пользователя: {e}")
+        return False
+

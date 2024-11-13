@@ -336,3 +336,16 @@ take_the_test_again_grammar_kg = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="↪️ Тестти кайрадан баштоо", callback_data='take_the_test_again_grammar_kg')],
     [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
 ])
+
+def go_to_question_result(question_id: int, question_type: str, question_lenguage: str) -> InlineKeyboardMarkup:
+    if question_lenguage == 'kg':
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Суроого кайтуу", callback_data=f'go_to_question_result_{question_type}_{question_lenguage}_{question_id}')],
+            [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+        ])
+    else:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⬅️ Вернутся к вопросу",callback_data=f'go_to_question_result_{question_type}_{question_lenguage}_{question_id}')],
+            [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+        ])
+    return keyboard

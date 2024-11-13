@@ -2496,7 +2496,9 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                     await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
         await delete_previous_messages(callback_query.message)
         sent_message = await callback_query.message.answer(
-            text=f"In ai:\n{explanation_text_for_user}"
+            text=explanation_text_for_user,
+            reply_markup=kb.go_to_question_result(question_id=question_id, question_type=question_type,
+                                                  question_lenguage=question_language)
         )
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     else:
@@ -2548,7 +2550,110 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                     explanation_text_for_user += "\n\n" + explanation
         await delete_previous_messages(callback_query.message)
         sent_message = await callback_query.message.answer(
-            text=f"In db:\n{explanation_text_for_user}"
+            text=explanation_text_for_user,
+            reply_markup=kb.go_to_question_result(question_id=question_id, question_type=question_type,
+                                                  question_lenguage=question_language)
         )
         sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data.startswith("go_to_question_result_"))
+async def go_to_question_result(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+    # go_to_question_result_analogy_kg_12
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[6])
+    question_type = parts[4]
+    question_language = parts[5]
+
+    question_data = await rq.get_question_and_options(question_id)
+    is_correct = await rq.check_user_answer_correct(question_id=question_id, user_telegram_id=telegram_id)
+
+    if question_language == 'kg':
+        if question_type == 'analogy':
+            question_text = f"Жуп: {question_data['question']}\n" \
+                            f"А) {question_data['option_a']}\n" \
+                            f"Б) {question_data['option_b']}\n" \
+                            f"В) {question_data['option_v']}\n" \
+                            f"Г) {question_data['option_g']}\n"
+            if is_correct:
+                feedback_text = (f"Сиздин жооп ({question_data['correct_option']}) туура!\n"
+                                 f"Сизге +1 💎 рубин кошулду.")
+                photo = utils.PictureForCorrectAnswer
+            else:
+                feedback_text = f"Сиздин жооп туура эмес! Туура жооп: {question_data['correct_option']}"
+                photo = utils.PictureForWrongAnswer
+            sent_message = await callback_query.message.answer_photo(
+                photo=photo,
+                caption=f"{question_text}\n_{feedback_text}_",
+                reply_markup=kb.next_analogy_question_kg_button(question_id=question_id),
+                parse_mode=ParseMode.MARKDOWN
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        elif question_type == 'grammar':
+            question_text = f"Суроо: {question_data['question']}\n" \
+                            f"А) {question_data['option_a']}\n" \
+                            f"Б) {question_data['option_b']}\n" \
+                            f"В) {question_data['option_v']}\n" \
+                            f"Г) {question_data['option_g']}\n"
+            if is_correct:
+                feedback_text = (f"Сиздин жооп ({question_data['correct_option']}) туура!\n"
+                                 f"Сизге +1 💎 рубин кошулду.")
+                photo = utils.PictureForCorrectAnswer
+            else:
+                feedback_text = f"Сиздин жооп туура эмес! Туура жооп: {question_data['correct_option']}"
+                photo = utils.PictureForWrongAnswer
+            sent_message = await callback_query.message.answer_photo(
+                photo=photo,
+                caption=f"{question_text}\n_{feedback_text}_",
+                reply_markup=kb.next_grammar_kg_button(question_id=question_id),
+                parse_mode=ParseMode.MARKDOWN
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    elif question_language == 'ru':
+        if question_type == 'analogy':
+            question_text = f"Пара: {question_data['question']}\n" \
+                            f"А) {question_data['option_a']}\n" \
+                            f"Б) {question_data['option_b']}\n" \
+                            f"В) {question_data['option_v']}\n" \
+                            f"Г) {question_data['option_g']}\n"
+            if is_correct:
+                feedback_text = (f"Ваш ответ ({question_data['correct_option']}) правильный!\n"
+                                 f"Вам зачислено +1 💎 рубинов.")
+                photo = utils.PictureForCorrectAnswer
+            else:
+                feedback_text = f"Ваш ответ неправильный! Правильный ответ: {question_data['correct_option']}"
+                photo = utils.PictureForWrongAnswer
+            sent_message = await callback_query.message.answer_photo(
+                photo=photo,
+                caption=f"{question_text}\n_{feedback_text}_",
+                reply_markup=kb.next_analogy_question_button(question_id=question_id),
+                parse_mode=ParseMode.MARKDOWN
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        elif question_type == 'grammar':
+            question_text = f"Вопрос: {question_data['question']}\n" \
+                            f"А) {question_data['option_a']}\n" \
+                            f"Б) {question_data['option_b']}\n" \
+                            f"В) {question_data['option_v']}\n" \
+                            f"Г) {question_data['option_g']}\n"
+            if is_correct:
+                feedback_text = (f"Ваш ответ ({question_data['correct_option']}) правильный!\n"
+                                 f"Вам зачислено +1 💎 рубинов.")
+                photo = utils.PictureForCorrectAnswer
+            else:
+                feedback_text = f"Ваш ответ неправильный! Правильный ответ: {question_data['correct_option']}"
+                photo = utils.PictureForWrongAnswer
+            sent_message = await callback_query.message.answer_photo(
+                photo=photo,
+                caption=f"{question_text}\n_{feedback_text}_",
+                reply_markup=kb.next_analogy_grammar_button(question_id=question_id),
+                parse_mode=ParseMode.MARKDOWN
+            )
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
 
