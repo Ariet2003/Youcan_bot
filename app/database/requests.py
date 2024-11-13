@@ -9,6 +9,8 @@ from bot_instance import bot
 from sqlalchemy import select, delete
 from datetime import datetime
 from sqlalchemy import update
+import random
+from sqlalchemy import or_
 import pytz
 
 # We get the current time in the required time zone
@@ -1055,3 +1057,42 @@ async def check_user_answer_correct(question_id: int, user_telegram_id: int) -> 
         print(f"Ошибка при проверке правильности ответа пользователя: {e}")
         return False
 
+
+# Функция для проверки, есть ли незавершенные дуэли
+async def has_unfinished_duels() -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Запрос на поиск незавершенных дуэлей, где opponent_id пустой
+                result = await session.execute(
+                    select(Duel).where(Duel.opponent_id == None)
+                )
+
+                # Проверяем, есть ли хотя бы одна незавершенная дуэль
+                unfinished_duel_exists = result.scalar_one_or_none() is not None
+
+                return unfinished_duel_exists  # True, если есть незавершенные дуэли, иначе False
+    except Exception as e:
+        print(f"Ошибка при проверке наличия незавершенных дуэлей: {e}")
+        return False
+
+
+# Функция для получения 5 случайных question_id по двум subject_id
+async def get_random_questions_by_subjects(subject_id1: int, subject_id2: int) -> list[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Запрос для получения всех вопросов по двум subject_id
+                result = await session.execute(
+                    select(Question.question_id)
+                    .where(or_(Question.subject_id == subject_id1, Question.subject_id == subject_id2))
+                )
+
+                # Извлекаем все question_id из результатов
+                question_ids = [row[0] for row in result.fetchall()]
+
+                # Возвращаем 5 случайных question_id, если доступно достаточно вопросов
+                return random.sample(question_ids, min(5, len(question_ids)))
+    except Exception as e:
+        print(f"Ошибка при получении случайных вопросов: {e}")
+        return []

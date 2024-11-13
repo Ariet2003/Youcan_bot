@@ -349,3 +349,31 @@ def go_to_question_result(question_id: int, question_type: str, question_lenguag
             [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
         ])
     return keyboard
+
+duel_menu_kg = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🗡️ Баштаа", callback_data='duel_with_random_kg')],
+    [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
+])
+
+duel_menu_ru = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🗡️ Начать", callback_data='duel_with_random_ru')],
+    [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
+])
+
+def duel_question_keyboard_kg(question_id: int, numerator: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="А", callback_data=f'duel_question_kg_{numerator}_{question_id}_a'),
+         InlineKeyboardButton(text="Б", callback_data=f'duel_question_kg_{numerator}_{question_id}_b')],
+        [InlineKeyboardButton(text="В", callback_data=f'duel_question_kg_{numerator}_{question_id}_v'),
+         InlineKeyboardButton(text="Г", callback_data=f'duel_question_kg_{numerator}_{question_id}_g')]
+    ])
+    return keyboard
+
+def duel_question_keyboard_ru(question_id: int, numerator: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="А", callback_data=f'duel_question_ru_{numerator}_{question_id}_a'),
+         InlineKeyboardButton(text="Б", callback_data=f'duel_question_ru_{numerator}_{question_id}_b')],
+        [InlineKeyboardButton(text="В", callback_data=f'duel_question_ru_{numerator}_{question_id}_v'),
+         InlineKeyboardButton(text="Г", callback_data=f'duel_question_ru_{numerator}_{question_id}_g')]
+    ])
+    return keyboard

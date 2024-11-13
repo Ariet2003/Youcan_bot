@@ -53,6 +53,7 @@ PictureForTakeGrammarQuestionRU = 'AgACAgIAAxkBAAIQoGcxtMgIsPC_bEqdDoAAAawzq7JTc
 PictureForTakeGrammarQuestionKG = 'AgACAgIAAxkBAAIQoGcxtMgIsPC_bEqdDoAAAawzq7JTcwACeeIxGzfRkEnTxae9Y1ktkQEAAwIAA3kAAzYE'
 PictureForCorrectAnswer = 'AgACAgIAAxkBAAIQAWcxAXYqWDLZRCVitKlmMP3pZqxeAALR6DEbWH-IScn9kiFh6amSAQADAgADeQADNgQ'
 PictureForWrongAnswer = 'AgACAgIAAxkBAAIQBWcxAYe9TSlmXT6I-u62Cdh8lAgxAALS6DEbWH-ISQs6WKXnDxtmAQADAgADeQADNgQ'
+PictureForDuel = 'AgACAgIAAxkBAAITsWc0tm5T7VGbJdiCoI2F7VQV5A_LAALY8zEb1t-gSXg3pHvzSqu_AQADAgADeQADNgQ'
 
 PhoneNumberAdmin = '+996702160703'
 

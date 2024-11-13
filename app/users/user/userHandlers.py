@@ -2655,5 +2655,304 @@ async def go_to_question_result(callback_query: CallbackQuery):
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
+@router.callback_query(F.data == 'duel_kg')
+async def duel_kg(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption="Дуэль - бул 5 суроо менен атаандаш менен таймашуу",
+        reply_markup=kb.duel_menu_kg
+    )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 
+@router.callback_query(F.data == 'duel_with_random_kg')
+async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    is_duel = await rq.has_unfinished_duels()
+
+    if not is_duel:
+        question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
+        print(question_ids)
+        await duel_first_question_kg(callback_query, question_ids, state)
+    else:
+        ...
+
+async def duel_first_question_kg(callback_query, question_ids: list[int], state: FSMContext):
+    question_id = question_ids[0]
+    print(question_id)
+
+    question_data = await rq.get_question_and_options(question_id=question_id)
+    await state.update_data(question_ids=question_ids, score=0)
+
+    question_text = f"Суроо 1: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer(
+        text=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=question_id, numerator=1)
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_1_"))
+async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_kg_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+    print(selected_option)
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+    print(str(question_id) + " " + selected_option)
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        print("+1")
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[1]
+    print(next_question_id)
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Суроо 2: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer(
+        text=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=2)
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_2_"))
+async def duel_third_question_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_kg_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+    print(selected_option)
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+    print(str(question_id) + " " + selected_option)
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        print("+1")
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[2]
+    print(next_question_id)
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Суроо 3: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer(
+        text=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=3)
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_3_"))
+async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_kg_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+    print(selected_option)
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+
+    print(str(question_id) + " " + selected_option)
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        print("+1")
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[3]
+    print(next_question_id)
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Суроо 4: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer(
+        text=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=4)
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_4_"))
+async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_kg_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+    print(selected_option)
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+    print(str(question_id) + " " + selected_option)
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        print("+1")
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[4]
+    print(next_question_id)
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Суроо 5: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer(
+        text=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=5)
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_5_"))
+async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_kg_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+    print(selected_option)
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+    print(str(question_id) + " " + selected_option)
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        print("+1")
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    data = await state.get_data()
+    score = data['score']
+
+    sent_message = await callback_query.message.answer(
+        text=f"Ваш балл: {score}",
+        reply_markup=kb.to_user_account_kg
+    )
+    await state.clear()
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
