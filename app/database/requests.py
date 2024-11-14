@@ -1096,3 +1096,25 @@ async def get_random_questions_by_subjects(subject_id1: int, subject_id2: int) -
     except Exception as e:
         print(f"Ошибка при получении случайных вопросов: {e}")
         return []
+
+
+# Функция для проверки, есть ли у пользователя хотя бы 10 рубинов
+async def has_minimum_rubies(telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим пользователя по telegram_id
+                result = await session.execute(
+                    select(User.rubies).where(User.telegram_id == telegram_id)
+                )
+                rubies = result.scalar_one_or_none()
+
+                # Проверяем, есть ли у пользователя хотя бы 10 рубинов
+                if rubies is not None and rubies >= 10:
+                    return True
+                else:
+                    print("Недостаточно рубинов или пользователь не найден.")
+                    return False
+    except Exception as e:
+        print(f"Ошибка при проверке количества рубинов: {e}")
+        return False

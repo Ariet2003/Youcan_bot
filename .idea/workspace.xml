@@ -9,8 +9,6 @@
       <change beforePath="$PROJECT_DIR$/app/database/requests.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/database/requests.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/users/user/userHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userHandlers.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/users/user/userKeyboards.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userKeyboards.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -219,7 +217,8 @@
       <workItem from="1731423211971" duration="7980000" />
       <workItem from="1731439450512" duration="4998000" />
       <workItem from="1731481493166" duration="6977000" />
-      <workItem from="1731505614034" duration="15031000" />
+      <workItem from="1731505614034" duration="15261000" />
+      <workItem from="1731564938372" duration="3338000" />
     </task>
     <task id="LOCAL-00001" summary="All folders and files are created and launched">
       <option name="closed" value="true" />
@@ -312,6 +311,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1731522942259" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1731570041387" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

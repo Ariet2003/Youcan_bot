@@ -2655,6 +2655,11 @@ async def go_to_question_result(callback_query: CallbackQuery):
             )
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
+
+#################################################################################
+#                        Duel in kyrgyz language                                #
+#################################################################################
+
 @router.callback_query(F.data == 'duel_kg')
 async def duel_kg(callback_query: CallbackQuery):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
@@ -2662,8 +2667,9 @@ async def duel_kg(callback_query: CallbackQuery):
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForDuel,
-        caption="Дуэль - бул 5 суроо менен атаандаш менен таймашуу",
-        reply_markup=kb.duel_menu_kg
+        caption=f'\n<a href="https://telegra.ph/Bottogu-Duehl-funkciyasy-Rubinder-%D2%AFch%D2%AFn-zharyshy%D2%A3yz-zhana-eh%D2%A3-mykty-ehkeni%D2%A3izdi-k%D3%A9rs%D3%A9t%D2%AF%D2%A3%D2%AFz-11-14">Дуэль деген эмне?</a> 👈',
+        reply_markup=kb.duel_menu_kg,
+        parse_mode=ParseMode.HTML
     )
 
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
@@ -2673,15 +2679,27 @@ async def duel_kg(callback_query: CallbackQuery):
 async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
     await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
 
-    is_duel = await rq.has_unfinished_duels()
+    has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
 
-    if not is_duel:
-        question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
-        print(question_ids)
-        await duel_first_question_kg(callback_query, question_ids, state)
+    if has_rubies:
+        is_duel = await rq.has_unfinished_duels()
+
+        if not is_duel:
+            question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
+            print(question_ids)
+            await duel_first_question_kg(callback_query, question_ids, state)
+        else:
+            ...
     else:
-        ...
+        sent_message = await callback_query.message.answer_photo(
+            photo=utils.PictureForDuel,
+            caption="Сизде дуэлге катышуу үчүн рубин жетишсиз\n"
+                    "Жок дегенде 10 рубин болуу керек.",
+            reply_markup=kb.to_user_account_kg
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
 async def duel_first_question_kg(callback_query, question_ids: list[int], state: FSMContext):
     question_id = question_ids[0]
@@ -2696,9 +2714,11 @@ async def duel_first_question_kg(callback_query, question_ids: list[int], state:
                     f"В) {question_data['option_v']}\n" \
                     f"Г) {question_data['option_g']}\n"
 
-    sent_message = await callback_query.message.answer(
-        text=question_text,
-        reply_markup=kb.duel_question_keyboard_kg(question_id=question_id, numerator=1)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=question_id, numerator=1),
+        parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
@@ -2748,9 +2768,11 @@ async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMConte
                     f"В) {question_data['option_v']}\n" \
                     f"Г) {question_data['option_g']}\n"
 
-    sent_message = await callback_query.message.answer(
-        text=question_text,
-        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=2)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=2),
+        parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
@@ -2800,9 +2822,11 @@ async def duel_third_question_kg(callback_query: CallbackQuery, state: FSMContex
                     f"В) {question_data['option_v']}\n" \
                     f"Г) {question_data['option_g']}\n"
 
-    sent_message = await callback_query.message.answer(
-        text=question_text,
-        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=3)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=3),
+        parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
@@ -2853,9 +2877,11 @@ async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMConte
                     f"В) {question_data['option_v']}\n" \
                     f"Г) {question_data['option_g']}\n"
 
-    sent_message = await callback_query.message.answer(
-        text=question_text,
-        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=4)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=4),
+        parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
@@ -2906,9 +2932,11 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                     f"В) {question_data['option_v']}\n" \
                     f"Г) {question_data['option_g']}\n"
 
-    sent_message = await callback_query.message.answer(
-        text=question_text,
-        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=5)
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=5),
+        parse_mode=ParseMode.MARKDOWN
     )
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
 
@@ -2952,7 +2980,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
 
     sent_message = await callback_query.message.answer(
         text=f"Ваш балл: {score}",
-        reply_markup=kb.to_user_account_kg
+        reply_markup=kb.to_user_account_kg,
+        parse_mode=ParseMode.MARKDOWN
     )
     await state.clear()
     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
