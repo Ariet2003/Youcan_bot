@@ -1,6 +1,6 @@
 from typing import Optional, List
 from sqlalchemy import (
-    BigInteger, Integer, String, Boolean, ForeignKey, JSON, DECIMAL, TIMESTAMP, func
+    BigInteger, Integer, String, Boolean, ForeignKey, JSON, DECIMAL, TIMESTAMP, func, Float, ARRAY
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
@@ -65,11 +65,11 @@ class Duel(Base):
     duel_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     creator_id: Mapped[int] = mapped_column(ForeignKey('users.user_id', ondelete='CASCADE'))
     opponent_id: Mapped[Optional[int]] = mapped_column(ForeignKey('users.user_id', ondelete='SET NULL'), nullable=True)
-    questions: Mapped[List[int]] = mapped_column(JSON)  # Список идентификаторов вопросов
+    questions: Mapped[List[int]] = mapped_column(ARRAY(Integer))  # Список идентификаторов вопросов
     creator_score: Mapped[int] = mapped_column(default=0)
-    creator_time: Mapped[int] = mapped_column(Integer)  # Время в секундах
+    creator_time: Mapped[float] = mapped_column(Float)  # Время с типом Float
     opponent_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    opponent_time: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Время в секундах
+    opponent_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Время с типом Float
     winner_id: Mapped[Optional[int]] = mapped_column(ForeignKey('users.user_id'), nullable=True)
     created_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
     completed_at: Mapped[Optional[TIMESTAMP]] = mapped_column(TIMESTAMP, nullable=True)

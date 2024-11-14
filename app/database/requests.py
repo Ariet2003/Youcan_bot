@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import async_session
 from app.database.models import User, Admin, Question, Notification, Duel, UserAnswer
 from app.users.user import userKeyboards as kb
+from sqlalchemy.exc import SQLAlchemyError
 from bot_instance import bot
 from sqlalchemy import select, delete
 from datetime import datetime
@@ -12,6 +13,8 @@ from sqlalchemy import update
 import random
 from sqlalchemy import or_
 import pytz
+import json
+
 
 # We get the current time in the required time zone
 def get_current_time():
@@ -1058,23 +1061,38 @@ async def check_user_answer_correct(question_id: int, user_telegram_id: int) -> 
         return False
 
 
-# Функция для проверки, есть ли незавершенные дуэли
-async def has_unfinished_duels() -> bool:
+# Функция для проверки наличия незавершенных дуэлей, где opponent_id пустой и creator_id не равен user_id
+async def has_unfinished_duels(telegram_id: str) -> bool:
     try:
         async with async_session() as session:
             async with session.begin():
-                # Запрос на поиск незавершенных дуэлей, где opponent_id пустой
+                # Находим user_id по telegram_id
                 result = await session.execute(
-                    select(Duel).where(Duel.opponent_id == None)
+                    select(User.user_id).where(User.telegram_id == telegram_id)
+                )
+                user_id = result.scalar_one_or_none()
+
+                if user_id is None:
+                    print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                    return False
+
+                # Запрос на поиск хотя бы одной незавершенной дуэли, где opponent_id пустой и creator_id не равен user_id
+                result = await session.execute(
+                    select(Duel)
+                    .where(Duel.opponent_id == None, Duel.creator_id != user_id)
+                    .limit(1)  # Ограничиваем результат одной строкой
                 )
 
-                # Проверяем, есть ли хотя бы одна незавершенная дуэль
-                unfinished_duel_exists = result.scalar_one_or_none() is not None
+                # Проверяем, есть ли хотя бы одна подходящая незавершенная дуэль
+                unfinished_duel_exists = result.fetchone() is not None
 
                 return unfinished_duel_exists  # True, если есть незавершенные дуэли, иначе False
     except Exception as e:
         print(f"Ошибка при проверке наличия незавершенных дуэлей: {e}")
         return False
+
+
+
 
 
 # Функция для получения 5 случайных question_id по двум subject_id
@@ -1118,3 +1136,91 @@ async def has_minimum_rubies(telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при проверке количества рубинов: {e}")
         return False
+
+
+# Функция для записи данных о дуэли, используя telegram_id для получения creator_id
+async def record_duel(telegram_id: str, questions: List[int], creator_score: int, creator_time: float) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим creator_id по telegram_id
+                result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == telegram_id)
+                )
+                creator_id = result.scalar_one_or_none()
+
+                if creator_id is None:
+                    print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                    return False
+
+                # Сериализуем список вопросов в строку JSON
+                questions_json = json.dumps(questions)
+
+                # Создаём новый объект дуэли
+                duel = Duel(
+                    creator_id=creator_id,
+                    questions=questions_json,  # сохраняем сериализованный список
+                    creator_score=creator_score,
+                    creator_time=creator_time,
+                    created_at=get_current_time()
+                )
+
+                # Добавляем объект в сессию
+                session.add(duel)
+
+                # Сохраняем изменения в базе данных
+                await session.commit()
+
+                return True
+    except Exception as e:
+        print(f"Ошибка при записи дуэли: {e}")
+        return False
+
+
+# Функция для обновления opponent_id в самой старой дуэли
+async def update_opponent_in_oldest_duel(telegram_id: str) -> Optional[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим user_id по telegram_id
+                result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == telegram_id)
+                )
+                user_id = result.scalar_one_or_none()
+
+                if user_id is None:
+                    print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                    return None
+
+                # Находим самую старую дуэль, у которой opponent_id пустой
+                # и user_id не совпадает с creator_id
+                result = await session.execute(
+                    select(Duel.duel_id, Duel.creator_id)
+                    .where(Duel.opponent_id == None)
+                    .where(Duel.creator_id != user_id)  # Фильтруем по условию
+                    .order_by(Duel.created_at.asc())
+                    .limit(1)
+                )
+                duel = result.fetchone()  # Получаем результат как одну строку
+
+                if duel is None:
+                    print("Дуэли с пустым opponent_id и подходящим creator_id не найдены.")
+                    return None
+
+                duel_id, creator_id = duel  # Теперь результат это кортеж с duel_id и creator_id
+
+                # Обновляем opponent_id в найденной дуэли
+                await session.execute(
+                    update(Duel)
+                    .where(Duel.duel_id == duel_id)
+                    .values(opponent_id=user_id)
+                )
+
+                # Сохраняем изменения в базе данных
+                await session.commit()
+
+                # Возвращаем duel_id обновленной дуэли
+                return duel_id
+    except Exception as e:
+        print(f"Ошибка при обновлении opponent_id: {e}")
+        return None
