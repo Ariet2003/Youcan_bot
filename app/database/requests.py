@@ -901,6 +901,31 @@ async def update_rubies(telegram_id: str, rubies_to_add: int) -> bool:
         print(f"Ошибка при обновлении рубинов: {e}")
         return False  # Ошибка
 
+# Запрос для обновления количества рубинов для пользователя по telegram_id (минус)
+async def update_rubies_minus(telegram_id: str, rubies_to_add: int) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Запрос для получения пользователя по telegram_id
+                result = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+
+                user = result.scalar()
+
+                if user:
+                    # Обновляем количество рубинов
+                    user.rubies -= rubies_to_add
+
+                    # Сохраняем изменения
+                    await session.commit()
+                    return True  # Успешно обновлено
+                else:
+                    return False  # Пользователь не найден
+    except Exception as e:
+        print(f"Ошибка при обновлении рубинов: {e}")
+        return False  # Ошибка
+
 # Запрос для записи ответа пользователя в таблицу user_answers
 async def record_user_answer(user_id: int, question_id: int, chosen_option: str, is_correct: bool, rubies_earned: int) -> bool:
     try:
@@ -1223,4 +1248,114 @@ async def update_opponent_in_oldest_duel(telegram_id: str) -> Optional[int]:
                 return duel_id
     except Exception as e:
         print(f"Ошибка при обновлении opponent_id: {e}")
+        return None
+
+
+# Функция для получения списка вопросов по duel_id
+async def get_duel_questions(duel_id: int) -> List[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Выполняем запрос для получения списка вопросов
+                result = await session.execute(
+                    select(Duel.questions).where(Duel.duel_id == duel_id)
+                )
+                questions = result.scalar_one_or_none()  # Извлекаем вопросы
+
+                return questions  # Возвращаем список вопросов или None, если дуэль не найдена
+    except Exception as e:
+        print(f"Ошибка при получении списка вопросов для duel_id {duel_id}: {e}")
+        return None
+
+# Функция для получения creator_score, creator_time и telegram_id по duel_id
+async def get_creator_score_time_and_telegram(duel_id: int) -> Optional[tuple[int, float, str]]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Выполняем запрос для получения creator_score, creator_time и creator_id
+                result = await session.execute(
+                    select(Duel.creator_score, Duel.creator_time, Duel.creator_id).where(Duel.duel_id == duel_id)
+                )
+                duel_data = result.one_or_none()
+
+                if duel_data is None:
+                    print(f"Данные для duel_id {duel_id} не найдены.")
+                    return None
+
+                creator_score, creator_time, creator_id = duel_data
+
+                # Выполняем запрос для получения telegram_id по creator_id
+                result = await session.execute(
+                    select(User.telegram_id).where(User.user_id == creator_id)
+                )
+                telegram_id = result.scalar_one_or_none()
+
+                if telegram_id is None:
+                    print(f"Telegram ID для creator_id {creator_id} не найден.")
+                    return None
+
+                # Возвращаем кортеж (creator_score, creator_time, telegram_id)
+                return creator_score, creator_time, telegram_id
+    except Exception as e:
+        print(f"Ошибка при получении данных для duel_id {duel_id}: {e}")
+        return None
+
+# Функция для обновления opponent_score, opponent_time и winner_id по duel_id, где winner определяется по telegram_id
+async def update_duel_with_opponent_results(duel_id: int, opponent_score: int, opponent_time: float, winner_telegram_id: str) -> bool:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим user_id по winner_telegram_id
+                result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == winner_telegram_id)
+                )
+                winner_id = result.scalar_one_or_none()
+
+                if winner_id is None:
+                    print(f"Пользователь с telegram_id {winner_telegram_id} не найден.")
+                    return False
+
+                # Обновляем поля opponent_score, opponent_time и winner_id в записи дуэли
+                await session.execute(
+                    update(Duel)
+                    .where(Duel.duel_id == duel_id)
+                    .values(
+                        opponent_score=opponent_score,
+                        opponent_time=opponent_time,
+                        winner_id=winner_id,
+                        completed_at=get_current_time()
+                    )
+                )
+                # Сохраняем изменения
+                await session.commit()
+                return True
+    except Exception as e:
+        print(f"Ошибка при обновлении данных дуэли: {e}")
+        return False
+
+# Функция для получения количества дуэлей, где пользователь - creator, а opponent_id пустой
+async def count_duels_with_opponent_pending(telegram_id: str) -> Optional[int]:
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим user_id по telegram_id
+                result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == telegram_id)
+                )
+                user_id = result.scalar_one_or_none()
+
+                if user_id is None:
+                    print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                    return None
+
+                # Запрос на подсчет дуэлей, где creator_id равен user_id и opponent_id пустой
+                result = await session.execute(
+                    select(func.count()).select_from(Duel)
+                    .where(Duel.creator_id == user_id, Duel.opponent_id == None)
+                )
+                duel_count = result.scalar_one()  # Получаем количество дуэлей
+
+                return duel_count
+    except Exception as e:
+        print(f"Ошибка при получении количества дуэлей: {e}")
         return None

@@ -41,7 +41,7 @@ async def delete_previous_messages(message: Message):
 # User's personal account
 async def user_account(message: Message, state: FSMContext):
     sent_message_add_screen_ids['user_messages'].append(message.message_id)
-
+    await state.clear()
     user_tg_id = str(message.chat.id)
     language = await rq.get_user_language(user_tg_id)
     name = await rq.get_user_name(user_tg_id)
@@ -2698,16 +2698,53 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
         is_duel = await rq.has_unfinished_duels(telegram_id=telegram_id)
 
         if not is_duel:
-            question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
-            print(question_ids)
-            await duel_first_question_kg(callback_query, question_ids, state)
+            count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
+            if count_duels_with_opponent <= 4:
+                await state.update_data(user_type="creator")
+                question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
+                await duel_first_question_kg(callback_query, question_ids, state)
+            else:
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForDuel,
+                    caption="Сиз 5 дуэль ачып койдуңуз, аларды эч ким өтө элек.\n"
+                            "_Жок дегенде бирөөн башка бирөө өткөн соң дуэль ача аласыз._",
+                    reply_markup=kb.to_user_account_kg,
+                        parse_mode=ParseMode.MARKDOWN
+                )
+                sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
         else:
             duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
-            if duel_id is None:
-                print("DUEL ID: " + str(duel_id))
+            if duel_id:
+                question_ids = await rq.get_duel_questions(duel_id=duel_id)
+                if question_ids is None:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption="Дуэлдин суроолорун алууда ката кетти.\n"
+                                "Башынан кирип көрүңүз.",
+                        reply_markup=kb.to_user_account_kg
+                    )
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                else:
+                    await state.update_data(user_type="opponent", duel_id=duel_id)
+                    # Проверка и преобразование в list[int] при необходимости
+                    if isinstance(question_ids, str):
+                        question_ids = json.loads(question_ids)
+                    await duel_first_question_kg(callback_query, question_ids, state)
             else:
-                print("DUEL ID: " + str(duel_id))
-
+                count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
+                if count_duels_with_opponent <= 4:
+                    await state.update_data(user_type="creator")
+                    question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
+                    await duel_first_question_kg(callback_query, question_ids, state)
+                else:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption="Сиз 5 дуэль ачып койдуңуз, аларды эч ким өтө элек.\n"
+                                "_Жок дегенде бирөөн башка бирөө өткөн соң дуэль ача аласыз._",
+                        reply_markup=kb.to_user_account_kg,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForDuel,
@@ -2719,9 +2756,7 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
 
 async def duel_first_question_kg(callback_query, question_ids: list[int], state: FSMContext):
     question_id = question_ids[0]
-    print(question_id)
     start_time = get_current_time()
-    print("Start time: " + str(start_time))
     question_data = await rq.get_question_and_options(question_id=question_id)
     await state.update_data(question_ids=question_ids, score=0, start_time=start_time)
 
@@ -2749,7 +2784,6 @@ async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMConte
     parts = callback_data.split('_')
     question_id = int(parts[4])
     selected_option = parts[5]
-    print(selected_option)
 
     if selected_option == "a":
         selected_option = "А"
@@ -2759,7 +2793,6 @@ async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMConte
         selected_option = "В"
     elif selected_option == "g":
         selected_option = "Г"
-    print(str(question_id) + " " + selected_option)
 
 
     is_correct = await rq.check_answer(question_id, selected_option)
@@ -2767,14 +2800,12 @@ async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMConte
     data = await state.get_data()
 
     if is_correct:
-        print("+1")
         score = data['score']
         score = score + 1
         await state.update_data(score=score)
 
     next_question_ids = data['question_ids']
     next_question_id = next_question_ids[1]
-    print(next_question_id)
 
 
     question_data = await rq.get_question_and_options(question_id=next_question_id)
@@ -2803,7 +2834,6 @@ async def duel_third_question_kg(callback_query: CallbackQuery, state: FSMContex
     parts = callback_data.split('_')
     question_id = int(parts[4])
     selected_option = parts[5]
-    print(selected_option)
 
 
     if selected_option == "a":
@@ -2814,21 +2844,18 @@ async def duel_third_question_kg(callback_query: CallbackQuery, state: FSMContex
         selected_option = "В"
     elif selected_option == "g":
         selected_option = "Г"
-    print(str(question_id) + " " + selected_option)
 
     is_correct = await rq.check_answer(question_id, selected_option)
 
     data = await state.get_data()
 
     if is_correct:
-        print("+1")
         score = data['score']
         score = score + 1
         await state.update_data(score=score)
 
     next_question_ids = data['question_ids']
     next_question_id = next_question_ids[2]
-    print(next_question_id)
 
 
     question_data = await rq.get_question_and_options(question_id=next_question_id)
@@ -2856,7 +2883,6 @@ async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMConte
     parts = callback_data.split('_')
     question_id = int(parts[4])
     selected_option = parts[5]
-    print(selected_option)
 
 
     if selected_option == "a":
@@ -2868,7 +2894,6 @@ async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMConte
     elif selected_option == "g":
         selected_option = "Г"
 
-    print(str(question_id) + " " + selected_option)
 
 
     is_correct = await rq.check_answer(question_id, selected_option)
@@ -2876,14 +2901,12 @@ async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMConte
     data = await state.get_data()
 
     if is_correct:
-        print("+1")
         score = data['score']
         score = score + 1
         await state.update_data(score=score)
 
     next_question_ids = data['question_ids']
     next_question_id = next_question_ids[3]
-    print(next_question_id)
 
 
     question_data = await rq.get_question_and_options(question_id=next_question_id)
@@ -2912,7 +2935,6 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
     parts = callback_data.split('_')
     question_id = int(parts[4])
     selected_option = parts[5]
-    print(selected_option)
 
 
     if selected_option == "a":
@@ -2923,7 +2945,6 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
         selected_option = "В"
     elif selected_option == "g":
         selected_option = "Г"
-    print(str(question_id) + " " + selected_option)
 
 
     is_correct = await rq.check_answer(question_id, selected_option)
@@ -2931,14 +2952,12 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
     data = await state.get_data()
 
     if is_correct:
-        print("+1")
         score = data['score']
         score = score + 1
         await state.update_data(score=score)
 
     next_question_ids = data['question_ids']
     next_question_id = next_question_ids[4]
-    print(next_question_id)
 
 
     question_data = await rq.get_question_and_options(question_id=next_question_id)
@@ -2970,10 +2989,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
     selected_option = parts[5]
     telegram_id = callback_query.from_user.id
     finish_time = get_current_time()
-    print("Finish time: " + str(finish_time))
 
 
-    print(selected_option)
 
 
     if selected_option == "a":
@@ -2984,7 +3001,6 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
         selected_option = "В"
     elif selected_option == "g":
         selected_option = "Г"
-    print(str(question_id) + " " + selected_option)
 
 
     is_correct = await rq.check_answer(question_id, selected_option)
@@ -2992,7 +3008,6 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
     data = await state.get_data()
 
     if is_correct:
-        print("+1")
         score = data['score']
         score = score + 1
         await state.update_data(score=score)
@@ -3001,34 +3016,198 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
     score = data['score']
     start_time = data['start_time']
     question_ids = data['question_ids']
+    user_type = data['user_type']
 
     time_difference = calculate_time_difference(start_time, finish_time)
 
-    is_added_db = await rq.record_duel(
-        telegram_id=telegram_id,
-        questions=question_ids,
-        creator_score=score,
-        creator_time=time_difference
-    )
+    if user_type == "creator":
+        is_added_db = await rq.record_duel(
+            telegram_id=telegram_id,
+            questions=question_ids,
+            creator_score=score,
+            creator_time=time_difference
+        )
 
-    if is_added_db:
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForDuel,
-            caption=f"🎖️ *Сиздин балл:* _{score}_\n"
-                    f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
-                    f"_Сизге атаандаш табылып, ал суроолорго жооп берип бүткөндөн кийин сизге жыйынтык_ "
-                    f"_'Жыйынтыктыр' баскычына түшөт. Сиз ал баскычты басып, текшерип турсаңыз болот._",
-            reply_markup=kb.to_user_account_kg,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        await state.clear()
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
-    else:
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForDuel,
-            caption=f"_Сиздин жыйынтыкты базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
-            reply_markup=kb.to_user_account_kg,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        await state.clear()
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        if is_added_db:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption=f"🎖️ *Сиздин балл:* _{score}_\n"
+                        f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
+                        f"_Сизге атаандаш табылып, ал суроолорго жооп берип бүткөндөн кийин сизге жыйынтык_ "
+                        f"_'Жыйынтыктар' баскычына түшөт. Сиз ал баскычты басып, текшерип турсаңыз болот._",
+                reply_markup=kb.to_user_account_kg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.clear()
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption=f"_Сиздин жыйынтыкты базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                reply_markup=kb.to_user_account_kg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.clear()
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    elif user_type == "opponent":
+        duel_id = data['duel_id']
+        creator_data = await rq.get_creator_score_time_and_telegram(duel_id)
+        if creator_data is not None:
+            creator_score, creator_time, creator_telegram_id = creator_data
+
+            if creator_score > score:
+                await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
+                await rq.update_rubies_minus(telegram_id=telegram_id, rubies_to_add=10)
+                is_update = await rq.update_duel_with_opponent_results(
+                    duel_id=duel_id,
+                    opponent_score=score,
+                    opponent_time=time_difference,
+                    winner_telegram_id=creator_telegram_id
+                )
+                if is_update:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"🎖️ *Сиздин балл:* _{score}_\n"
+                                f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
+                                f"_Дуэлдин жыйынтыгын 'Жыйынтыктар' баскычынан азыр кирип көрсөңүз болот_",
+                        reply_markup=kb.to_user_account_kg,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                else:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"Дуэлдин жыйынтыгын базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                        reply_markup=kb.to_user_account_kg,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            elif creator_score < score:
+                await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
+                await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
+                is_update = await rq.update_duel_with_opponent_results(
+                    duel_id=duel_id,
+                    opponent_score=score,
+                    opponent_time=time_difference,
+                    winner_telegram_id=telegram_id
+                )
+                if is_update:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"🎖️ *Сиздин балл:* _{score}_\n"
+                                f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
+                                f"_Дуэлдин жыйынтыгын 'Жыйынтыктар' баскычынан азыр кирип көрсөңүз болот_",
+                        reply_markup=kb.to_user_account_kg,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                else:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"Дуэлдин жыйынтыгын базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                        reply_markup=kb.to_user_account_kg,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            elif creator_score == score:
+                if creator_time < time_difference:
+                    await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
+                    await rq.update_rubies_minus(telegram_id=telegram_id, rubies_to_add=10)
+                    is_update = await rq.update_duel_with_opponent_results(
+                        duel_id=duel_id,
+                        opponent_score=score,
+                        opponent_time=time_difference,
+                        winner_telegram_id=creator_telegram_id
+                    )
+                    if is_update:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"🎖️ *Сиздин балл:* _{score}_\n"
+                                    f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
+                                    f"_Дуэлдин жыйынтыгын 'Жыйынтыктар' баскычынан азыр кирип көрсөңүз болот_",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"Дуэлдин жыйынтыгын базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                elif creator_time > time_difference:
+                    await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
+                    await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
+                    is_update = await rq.update_duel_with_opponent_results(
+                        duel_id=duel_id,
+                        opponent_score=score,
+                        opponent_time=time_difference,
+                        winner_telegram_id=telegram_id
+                    )
+                    if is_update:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"🎖️ *Сиздин балл:* _{score}_\n"
+                                    f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
+                                    f"_Дуэлдин жыйынтыгын 'Жыйынтыктар' баскычынан азыр кирип көрсөңүз болот_",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"Дуэлдин жыйынтыгын базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                elif creator_time == time_difference:
+                    await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
+                    await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
+                    is_update = await rq.update_duel_with_opponent_results(
+                        duel_id=duel_id,
+                        opponent_score=score,
+                        opponent_time=time_difference,
+                        winner_telegram_id="Draw"
+                    )
+                    if is_update:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"🎖️ *Сиздин балл:* _{score}_\n"
+                                    f"⏱️ *Кеткен убакыт:* _{time_difference} секунд_\n\n"
+                                    f"_Дуэлдин жыйынтыгын 'Жыйынтыктар' баскычынан азыр кирип көрсөңүз болот_",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"Дуэлдин жыйынтыгын базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption=f"_Сиздин жыйынтыкты базага киргизип жатканда ката чыкты, кайра башынан өтүп көрүңүз._",
+                reply_markup=kb.to_user_account_kg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.clear()
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
