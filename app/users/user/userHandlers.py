@@ -2991,8 +2991,6 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
     finish_time = get_current_time()
 
 
-
-
     if selected_option == "a":
         selected_option = "А"
     elif selected_option == "b":
@@ -3218,7 +3216,6 @@ async def duel_results_kg(callback_query: CallbackQuery):
     await delete_previous_messages(callback_query.message)
 
     telegram_id = callback_query.message.chat.id
-    print(f"Telegram ID: {telegram_id}")
 
     duel_results = await rq.get_duel_results(telegram_id)
 
@@ -3254,4 +3251,589 @@ async def duel_results_kg(callback_query: CallbackQuery):
         await callback_query.message.answer(
             text="Дуэлдер боюнча маалымат алууда ката кетти.",
             reply_markup=kb.to_user_account_kg
+        )
+
+
+#################################################################################
+#                        Duel in russian language                               #
+#################################################################################
+
+@router.callback_query(F.data == 'duel_ru')
+async def duel_ru(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=f'\n<a href="https://telegra.ph/Funkciya-Duehl-v-nashem-bote-Srazites-za-rubiny-i-pokazhite-kto-luchshij-11-14">Что такое дуэль?</a> 👈',
+        reply_markup=kb.duel_menu_ru,
+        parse_mode=ParseMode.HTML
+    )
+
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(F.data == 'duel_with_random_ru')
+async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    telegram_id = callback_query.from_user.id
+
+    has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
+
+    if has_rubies:
+        is_duel = await rq.has_unfinished_duels(telegram_id=telegram_id)
+
+        if not is_duel:
+            count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
+            if count_duels_with_opponent <= 4:
+                await state.update_data(user_type="creator")
+                question_ids = await rq.get_random_questions_by_subjects(subject_id1=1, subject_id2=3)
+                await duel_first_question_ru(callback_query, question_ids, state)
+            else:
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForDuel,
+                    caption="Вы открыли 5 дуэлей, которые никто не завершил.\n"
+                            "_По крайней мере, вы можете сразиться с кем-то после того, как кто-то другой прошел._",
+                    reply_markup=kb.to_user_account_ru,
+                        parse_mode=ParseMode.MARKDOWN
+                )
+                sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
+            if duel_id:
+                question_ids = await rq.get_duel_questions(duel_id=duel_id)
+                if question_ids is None:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption="Ошибка при получении дуэльных вопросов.\n"
+                                "Попробуйте войти с самого начала.",
+                        reply_markup=kb.to_user_account_ru
+                    )
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                else:
+                    await state.update_data(user_type="opponent", duel_id=duel_id)
+                    # Проверка и преобразование в list[int] при необходимости
+                    if isinstance(question_ids, str):
+                        question_ids = json.loads(question_ids)
+                    await duel_first_question_ru(callback_query, question_ids, state)
+            else:
+                count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
+                if count_duels_with_opponent <= 4:
+                    await state.update_data(user_type="creator")
+                    question_ids = await rq.get_random_questions_by_subjects(subject_id1=1, subject_id2=3)
+                    await duel_first_question_ru(callback_query, question_ids, state)
+                else:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption="Вы открыли 5 дуэлей, которые никто еще не прошел.\n"
+                                "_По крайней мере, вы можете начать дуэль после того, как кто-то другой пройдет._",
+                        reply_markup=kb.to_user_account_ru,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await callback_query.message.answer_photo(
+            photo=utils.PictureForDuel,
+            caption="У вас недостаточно рубина, чтобы участвовать в дуэли\n"
+                    "Должно быть не менее 10 рубинов.",
+            reply_markup=kb.to_user_account_ru
+        )
+        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+async def duel_first_question_ru(callback_query, question_ids: list[int], state: FSMContext):
+    question_id = question_ids[0]
+    start_time = get_current_time()
+    question_data = await rq.get_question_and_options(question_id=question_id)
+    await state.update_data(question_ids=question_ids, score=0, start_time=start_time)
+
+    question_text = f"Вопрос 1: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_ru(question_id=question_id, numerator=1),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_1_"))
+async def duel_second_question_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_ru_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[1]
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Вопрос 2: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=2),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_2_"))
+async def duel_third_question_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_ru_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[2]
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Вопрос 3: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=3),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_3_"))
+async def duel_fourth_question_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_ru_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[3]
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Вопрос 4: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=4),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_4_"))
+async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_ru_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    next_question_ids = data['question_ids']
+    next_question_id = next_question_ids[4]
+
+
+    question_data = await rq.get_question_and_options(question_id=next_question_id)
+
+    question_text = f"Вопрос 5: *{question_data['question']}*\n" \
+                    f"А) {question_data['option_a']}\n" \
+                    f"Б) {question_data['option_b']}\n" \
+                    f"В) {question_data['option_v']}\n" \
+                    f"Г) {question_data['option_g']}\n"
+
+    sent_message = await callback_query.message.answer_photo(
+        photo=utils.PictureForDuel,
+        caption=question_text,
+        reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=5),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_5_"))
+async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContext):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+    # duel_question_ru_1_12_a
+    callback_data = callback_query.data
+    parts = callback_data.split('_')
+    question_id = int(parts[4])
+    selected_option = parts[5]
+    telegram_id = callback_query.from_user.id
+    finish_time = get_current_time()
+
+
+    if selected_option == "a":
+        selected_option = "А"
+    elif selected_option == "b":
+        selected_option = "Б"
+    elif selected_option == "v":
+        selected_option = "В"
+    elif selected_option == "g":
+        selected_option = "Г"
+
+
+    is_correct = await rq.check_answer(question_id, selected_option)
+
+    data = await state.get_data()
+
+    if is_correct:
+        score = data['score']
+        score = score + 1
+        await state.update_data(score=score)
+
+    data = await state.get_data()
+    score = data['score']
+    start_time = data['start_time']
+    question_ids = data['question_ids']
+    user_type = data['user_type']
+
+    time_difference = calculate_time_difference(start_time, finish_time)
+
+    if user_type == "creator":
+        is_added_db = await rq.record_duel(
+            telegram_id=telegram_id,
+            questions=question_ids,
+            creator_score=score,
+            creator_time=time_difference
+        )
+
+        if is_added_db:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption=f"🎖️ *Ваш результат:* _{score}_\n"
+                        f"⏱️ *Время:* _{time_difference} секунд_\n\n"
+                        f"_После того как будет найден соперник и он ответит на вопросы, вы сможете увидеть результаты,_ "
+                        f"_нажав на кнопку 'Результаты'._",
+                reply_markup=kb.to_user_account_ru,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.clear()
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption=f"_Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                reply_markup=kb.to_user_account_ru,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.clear()
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    elif user_type == "opponent":
+        duel_id = data['duel_id']
+        creator_data = await rq.get_creator_score_time_and_telegram(duel_id)
+        if creator_data is not None:
+            creator_score, creator_time, creator_telegram_id = creator_data
+
+            if creator_score > score:
+                await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
+                await rq.update_rubies_minus(telegram_id=telegram_id, rubies_to_add=10)
+                is_update = await rq.update_duel_with_opponent_results(
+                    duel_id=duel_id,
+                    opponent_score=score,
+                    opponent_time=time_difference,
+                    winner_telegram_id=creator_telegram_id
+                )
+                if is_update:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"🎖️ *Ваш результат:* _{score}_\n"
+                                f"⏱️ *Время:* _{time_difference} секунд_\n\n"
+                                f"_Вы можете увидеть результаты дуэли, войдя в систему прямо сейчас с помощью кнопки 'Результаты'._",
+                        reply_markup=kb.to_user_account_ru,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                else:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                        reply_markup=kb.to_user_account_ru,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            elif creator_score < score:
+                await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
+                await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
+                is_update = await rq.update_duel_with_opponent_results(
+                    duel_id=duel_id,
+                    opponent_score=score,
+                    opponent_time=time_difference,
+                    winner_telegram_id=telegram_id
+                )
+                if is_update:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"🎖️ *Ваш результат:* _{score}_\n"
+                                f"⏱️ *Время:* _{time_difference} секунд_\n\n"
+                                f"_Вы можете увидеть результаты дуэли, войдя в систему прямо сейчас с помощью кнопки 'Результаты'._",
+                        reply_markup=kb.to_user_account_ru,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                else:
+                    sent_message = await callback_query.message.answer_photo(
+                        photo=utils.PictureForDuel,
+                        caption=f"Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                        reply_markup=kb.to_user_account_ru,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    await state.clear()
+                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            elif creator_score == score:
+                if creator_time < time_difference:
+                    await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
+                    await rq.update_rubies_minus(telegram_id=telegram_id, rubies_to_add=10)
+                    is_update = await rq.update_duel_with_opponent_results(
+                        duel_id=duel_id,
+                        opponent_score=score,
+                        opponent_time=time_difference,
+                        winner_telegram_id=creator_telegram_id
+                    )
+                    if is_update:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"🎖️ *Ваш результат:* _{score}_\n"
+                                    f"⏱️ *Время:* _{time_difference} секунд_\n\n"
+                                    f"_Вы можете увидеть результаты дуэли, войдя в систему прямо сейчас с помощью кнопки 'Результаты'._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                elif creator_time > time_difference:
+                    await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
+                    await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
+                    is_update = await rq.update_duel_with_opponent_results(
+                        duel_id=duel_id,
+                        opponent_score=score,
+                        opponent_time=time_difference,
+                        winner_telegram_id=telegram_id
+                    )
+                    if is_update:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"🎖️ *Ваш результат:* _{score}_\n"
+                                    f"⏱️ *Время:* _{time_difference} секунд_\n\n"
+                                    f"_Вы можете увидеть результаты дуэли, войдя в систему прямо сейчас с помощью кнопки 'Результаты'._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                elif creator_time == time_difference:
+                    await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
+                    await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
+                    is_update = await rq.update_duel_with_opponent_results(
+                        duel_id=duel_id,
+                        opponent_score=score,
+                        opponent_time=time_difference,
+                        winner_telegram_id="Draw"
+                    )
+                    if is_update:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"🎖️ *Ваш результат:* _{score}_\n"
+                                    f"⏱️ *Время:* _{time_difference} секунд_\n\n"
+                                    f"_Вы можете увидеть результаты дуэли, войдя в систему прямо сейчас с помощью кнопки 'Результаты'._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption=f"Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        await state.clear()
+                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption=f"_Ошибка возникла при вводе результатов в базу данных, попробуйте пройти еще раз._",
+                reply_markup=kb.to_user_account_ru,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await state.clear()
+            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'duel_results_ru')
+async def duel_results_ru(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    telegram_id = callback_query.message.chat.id
+
+    duel_results = await rq.get_duel_results(telegram_id)
+
+    if duel_results:
+        # Формируем текст с результатами
+        response_text = (
+            f"*РЕЗУЛЬТАТЫ ДУЭЛЕЙ:*\n\n"
+            f"🏆 Победы: {duel_results['win_count']}\n"
+            f"📉 Поражения: {duel_results['lose_count']}\n"
+            f"⏳ В ожидании соперника: {duel_results['pending_count']}\n\n"
+            f"*ПОСЛЕДНИЕ 10 ДУЭЛЕЙ:*\n\n"
+        )
+
+        # Добавляем информацию о последних 20 дуэлях
+        for idx, duel in enumerate(duel_results['recent_duels'], start=1):
+            response_text += (
+                f"{idx}. *Создатель:* _{duel['creator_name']}:_\n"
+                f"🎖️: _{duel['creator_score']}_\n"
+                f"⏱️: _{duel['creator_time']}_\n"
+                f"*Соперник:* _{duel['opponent_name']}_\n"
+                f"🎖️: _{duel['opponent_score']}_\n"
+                f"⏱️: _{duel['opponent_time']}_\n"
+                f"*Время создания:* _{str(duel['created_at'])[:16]}_\n"
+                f"*Время завершения:* _{str(duel['completed_at'])[:16]}_\n\n"
+            )
+
+        await callback_query.message.answer(
+            text=response_text,
+            reply_markup=kb.to_user_account_ru,
+            parse_mode=ParseMode.MARKDOWN
+        )
+    else:
+        await callback_query.message.answer(
+            text="Произошла ошибка при получении информации о дуэлях.",
+            reply_markup=kb.to_user_account_ru
         )

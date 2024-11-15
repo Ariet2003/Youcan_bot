@@ -1087,25 +1087,28 @@ async def check_user_answer_correct(question_id: int, user_telegram_id: int) -> 
         return False
 
 
-# Функция для проверки наличия незавершенных дуэлей, где opponent_id пустой и creator_id не равен user_id
+# Функция для проверки наличия незавершенных дуэлей, где opponent_id пустой, creator_id не равен user_id, и язык совпадает
 async def has_unfinished_duels(telegram_id: str) -> bool:
     try:
         async with async_session() as session:
             async with session.begin():
-                # Находим user_id по telegram_id
+                # Находим user_id и язык по telegram_id
                 result = await session.execute(
-                    select(User.user_id).where(User.telegram_id == telegram_id)
+                    select(User.user_id, User.language).where(User.telegram_id == telegram_id)
                 )
-                user_id = result.scalar_one_or_none()
+                user_data = result.one_or_none()
 
-                if user_id is None:
+                if user_data is None:
                     print(f"Пользователь с telegram_id {telegram_id} не найден.")
                     return False
 
-                # Запрос на поиск хотя бы одной незавершенной дуэли, где opponent_id пустой и creator_id не равен user_id
+                user_id, user_language = user_data
+
+                # Запрос на поиск хотя бы одной незавершенной дуэли, где opponent_id пустой, creator_id не равен user_id, и язык совпадает
                 result = await session.execute(
                     select(Duel)
-                    .where(Duel.opponent_id == None, Duel.creator_id != user_id)
+                    .join(User, Duel.creator_id == User.user_id)
+                    .where(Duel.opponent_id == None, Duel.creator_id != user_id, User.language == user_language)
                     .limit(1)  # Ограничиваем результат одной строкой
                 )
 
@@ -1116,6 +1119,7 @@ async def has_unfinished_duels(telegram_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при проверке наличия незавершенных дуэлей: {e}")
         return False
+
 
 
 
@@ -1203,27 +1207,31 @@ async def record_duel(telegram_id: str, questions: List[int], creator_score: int
         return False
 
 
-# Функция для обновления opponent_id в самой старой дуэли
+# Функция для обновления opponent_id в самой старой дуэли с учетом языка
 async def update_opponent_in_oldest_duel(telegram_id: str) -> Optional[int]:
     try:
         async with async_session() as session:
             async with session.begin():
-                # Находим user_id по telegram_id
+                # Находим user_id и язык по telegram_id
                 result = await session.execute(
-                    select(User.user_id).where(User.telegram_id == telegram_id)
+                    select(User.user_id, User.language).where(User.telegram_id == telegram_id)
                 )
-                user_id = result.scalar_one_or_none()
+                user_data = result.one_or_none()
 
-                if user_id is None:
+                if user_data is None:
                     print(f"Пользователь с telegram_id {telegram_id} не найден.")
                     return None
 
-                # Находим самую старую дуэль, у которой opponent_id пустой
-                # и user_id не совпадает с creator_id
+                user_id, user_language = user_data
+
+                # Находим самую старую дуэль, у которой opponent_id пустой,
+                # creator_id не равен user_id, и язык создателя дуэли совпадает
                 result = await session.execute(
                     select(Duel.duel_id, Duel.creator_id)
+                    .join(User, Duel.creator_id == User.user_id)  # Присоединяем таблицу User для проверки языка
                     .where(Duel.opponent_id == None)
-                    .where(Duel.creator_id != user_id)  # Фильтруем по условию
+                    .where(Duel.creator_id != user_id)
+                    .where(User.language == user_language)  # Условие на совпадение языков
                     .order_by(Duel.created_at.asc())
                     .limit(1)
                 )
@@ -1233,7 +1241,7 @@ async def update_opponent_in_oldest_duel(telegram_id: str) -> Optional[int]:
                     print("Дуэли с пустым opponent_id и подходящим creator_id не найдены.")
                     return None
 
-                duel_id, creator_id = duel  # Теперь результат это кортеж с duel_id и creator_id
+                duel_id, creator_id = duel  # Результат — кортеж с duel_id и creator_id
 
                 # Обновляем opponent_id в найденной дуэли
                 await session.execute(
@@ -1250,6 +1258,7 @@ async def update_opponent_in_oldest_duel(telegram_id: str) -> Optional[int]:
     except Exception as e:
         print(f"Ошибка при обновлении opponent_id: {e}")
         return None
+
 
 
 # Функция для получения списка вопросов по duel_id
