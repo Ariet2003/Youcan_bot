@@ -351,12 +351,14 @@ def go_to_question_result(question_id: int, question_type: str, question_lenguag
     return keyboard
 
 duel_menu_kg = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="🗡️ Дуэлди баштоо", callback_data='duel_with_random_kg')],
+    [InlineKeyboardButton(text="🗡️ Дуэлди баштоо", callback_data='duel_with_random_kg'),
+     InlineKeyboardButton(text="⚖️ Жыйынтыктар", callback_data='duel_results_kg')],
     [InlineKeyboardButton(text="⬅️ Өздүк бөлмөгө", callback_data='to_home_kg')]
 ])
 
 duel_menu_ru = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="🗡️ Начать дуэль", callback_data='duel_with_random_ru')],
+    [InlineKeyboardButton(text="🗡️ Начать дуэль", callback_data='duel_with_random_ru'),
+     InlineKeyboardButton(text="⚖️ Результаты", callback_data='duel_results_ru')],
     [InlineKeyboardButton(text="⬅️ Личный кабинет", callback_data='to_home_ru')]
 ])
 

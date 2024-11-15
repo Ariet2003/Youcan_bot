@@ -3211,3 +3211,47 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
             )
             await state.clear()
             sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
+@router.callback_query(F.data == 'duel_results_kg')
+async def duel_results_kg(callback_query: CallbackQuery):
+    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    await delete_previous_messages(callback_query.message)
+
+    telegram_id = callback_query.message.chat.id
+    print(f"Telegram ID: {telegram_id}")
+
+    duel_results = await rq.get_duel_results(telegram_id)
+
+    if duel_results:
+        # Формируем текст с результатами
+        response_text = (
+            f"*ДУЭЛЬ ЖЫЙЫНТЫКТАРЫ:*\n\n"
+            f"🏆 Жеңиштер: {duel_results['win_count']}\n"
+            f"📉 Жеңилүүлөр: {duel_results['lose_count']}\n"
+            f"⏳ Атаандаш табыла элек: {duel_results['pending_count']}\n\n"
+            f"*АКЫРКЫ 10 ДУЭЛЬ:*\n\n"
+        )
+
+        # Добавляем информацию о последних 20 дуэлях
+        for idx, duel in enumerate(duel_results['recent_duels'], start=1):
+            response_text += (
+                f"{idx}. *Түзгөн:* _{duel['creator_name']}:_\n"
+                f"🎖️: _{duel['creator_score']}_\n"
+                f"⏱️: _{duel['creator_time']}_\n"
+                f"*Атаандаш:* _{duel['opponent_name']}_\n"
+                f"🎖️: _{duel['opponent_score']}_\n"
+                f"⏱️: _{duel['opponent_time']}_\n"
+                f"*Түзүлгөн убакыт:* _{str(duel['created_at'])[:16]}_\n"
+                f"*Аяктаган убакыт:* _{str(duel['completed_at'])[:16]}_\n\n"
+            )
+
+        await callback_query.message.answer(
+            text=response_text,
+            reply_markup=kb.to_user_account_kg,
+            parse_mode=ParseMode.MARKDOWN
+        )
+    else:
+        await callback_query.message.answer(
+            text="Дуэлдер боюнча маалымат алууда ката кетти.",
+            reply_markup=kb.to_user_account_kg
+        )

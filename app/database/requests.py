@@ -12,6 +12,7 @@ from datetime import datetime
 from sqlalchemy import update
 import random
 from sqlalchemy import or_
+from sqlalchemy.orm import aliased
 import pytz
 import json
 
@@ -1358,4 +1359,82 @@ async def count_duels_with_opponent_pending(telegram_id: str) -> Optional[int]:
                 return duel_count
     except Exception as e:
         print(f"Ошибка при получении количества дуэлей: {e}")
+        return None
+
+
+# Функция для получения статистики дуэлей и списка последних 20 дуэлей
+async def get_duel_results(telegram_id: str):
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                # Находим user_id по telegram_id
+                result = await session.execute(
+                    select(User.user_id).where(User.telegram_id == telegram_id)
+                )
+                user_id = result.scalar_one_or_none()
+                if user_id is None:
+                    print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                    return None
+
+                # Запрос на подсчет выигранных, проигранных и ожидающих дуэлей
+                win_count = await session.execute(
+                    select(func.count()).select_from(Duel)
+                    .where(Duel.winner_id == user_id)
+                )
+                win_count = win_count.scalar_one()
+
+                lose_count = await session.execute(
+                    select(func.count()).select_from(Duel)
+                    .where(Duel.opponent_id == user_id, Duel.winner_id != user_id)
+                )
+                lose_count = lose_count.scalar_one()
+
+                pending_count = await session.execute(
+                    select(func.count()).select_from(Duel)
+                    .where(Duel.creator_id == user_id, Duel.opponent_id == None)
+                )
+                pending_count = pending_count.scalar_one()
+
+                # Создаем псевдонимы для таблицы User
+                creator_user = aliased(User)
+                opponent_user = aliased(User)
+
+                # Запрос для получения последних 20 дуэлей
+                recent_duels = await session.execute(
+                    select(
+                        Duel.creator_score, Duel.creator_time, Duel.opponent_score, Duel.opponent_time,
+                        Duel.completed_at, Duel.created_at,
+                        creator_user.name.label("creator_name"),
+                        opponent_user.name.label("opponent_name")
+                    )
+                    .join(creator_user, Duel.creator_id == creator_user.user_id)
+                    .outerjoin(opponent_user, Duel.opponent_id == opponent_user.user_id)
+                    .where((Duel.creator_id == user_id) | (Duel.opponent_id == user_id))
+                    .order_by(Duel.created_at.desc())
+                    .limit(10)
+                )
+
+                duel_list = []
+                for duel in recent_duels:
+                    duel_info = {
+                        "creator_name": duel.creator_name if duel.creator_name else "Белгисиз",
+                        "creator_score": duel.creator_score,
+                        "creator_time": f"{duel.creator_time} сек.",
+                        "opponent_name": duel.opponent_name if duel.opponent_name else " - ",
+                        "opponent_score": duel.opponent_score if duel.opponent_score else " - ",
+                        "opponent_time": f"{duel.opponent_time} сек." if duel.opponent_time else " - ",
+                        "created_at": duel.created_at,  # Время создания дуэли
+                        "completed_at": duel.completed_at if duel.completed_at else " - "# Время завершения дуэли
+                    }
+                    duel_list.append(duel_info)
+
+                return {
+                    "win_count": win_count,
+                    "lose_count": lose_count,
+                    "pending_count": pending_count,
+                    "recent_duels": duel_list
+                }
+
+    except Exception as e:
+        print(f"Ошибка при получении результатов дуэлей: {e}")
         return None
