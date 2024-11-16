@@ -2036,7 +2036,7 @@ async def start_analogy_test(callback_query: CallbackQuery):
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=1, subject_id2=3)
     print(count_passed_questions)
 
-    if count_passed_questions > 5:
+    if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
         if is_vip:
@@ -2238,7 +2238,7 @@ async def start_grammar_test(callback_query: CallbackQuery):
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=1, subject_id2=3)
     print(count_passed_questions)
-    if count_passed_questions > 5:
+    if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
         if is_vip:
@@ -2465,7 +2465,7 @@ async def start_analogy_test_kg(callback_query: CallbackQuery):
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=2, subject_id2=4)
     print(count_passed_questions)
-    if count_passed_questions > 5:
+    if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
         if is_vip:
@@ -2664,7 +2664,7 @@ async def start_grammar_test_kg(callback_query: CallbackQuery):
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=2, subject_id2=4)
     print(count_passed_questions)
-    if count_passed_questions > 5:
+    if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
         if is_vip:
@@ -3418,47 +3418,15 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
     await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
-    has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
+    is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
-    if has_rubies:
-        is_duel = await rq.has_unfinished_duels(telegram_id=telegram_id)
+    if is_vip:
+        has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
 
-        if not is_duel:
-            count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
-            if count_duels_with_opponent <= 4:
-                await state.update_data(user_type="creator")
-                question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
-                await duel_first_question_kg(callback_query, question_ids, state)
-            else:
-                sent_message = await callback_query.message.answer_photo(
-                    photo=utils.PictureForDuel,
-                    caption="Сиз 5 дуэль ачып койдуңуз, аларды эч ким өтө элек.\n"
-                            "_Жок дегенде бирөөн башка бирөө өткөн соң дуэль ача аласыз._",
-                    reply_markup=kb.to_user_account_kg,
-                        parse_mode=ParseMode.MARKDOWN
-                )
-                # Добавляем сообщение бота
-                user_data['bot_messages'].append(sent_message.message_id)
-        else:
-            duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
-            if duel_id:
-                question_ids = await rq.get_duel_questions(duel_id=duel_id)
-                if question_ids is None:
-                    sent_message = await callback_query.message.answer_photo(
-                        photo=utils.PictureForDuel,
-                        caption="Дуэлдин суроолорун алууда ката кетти.\n"
-                                "Башынан кирип көрүңүз.",
-                        reply_markup=kb.to_user_account_kg
-                    )
-                    # Добавляем сообщение бота
-                    user_data['bot_messages'].append(sent_message.message_id)
-                else:
-                    await state.update_data(user_type="opponent", duel_id=duel_id)
-                    # Проверка и преобразование в list[int] при необходимости
-                    if isinstance(question_ids, str):
-                        question_ids = json.loads(question_ids)
-                    await duel_first_question_kg(callback_query, question_ids, state)
-            else:
+        if has_rubies:
+            is_duel = await rq.has_unfinished_duels(telegram_id=telegram_id)
+
+            if not is_duel:
                 count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
                 if count_duels_with_opponent <= 4:
                     await state.update_data(user_type="creator")
@@ -3470,15 +3438,59 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
                         caption="Сиз 5 дуэль ачып койдуңуз, аларды эч ким өтө элек.\n"
                                 "_Жок дегенде бирөөн башка бирөө өткөн соң дуэль ача аласыз._",
                         reply_markup=kb.to_user_account_kg,
-                        parse_mode=ParseMode.MARKDOWN
+                            parse_mode=ParseMode.MARKDOWN
                     )
                     # Добавляем сообщение бота
                     user_data['bot_messages'].append(sent_message.message_id)
+            else:
+                duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
+                if duel_id:
+                    question_ids = await rq.get_duel_questions(duel_id=duel_id)
+                    if question_ids is None:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption="Дуэлдин суроолорун алууда ката кетти.\n"
+                                    "Башынан кирип көрүңүз.",
+                            reply_markup=kb.to_user_account_kg
+                        )
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
+                    else:
+                        await state.update_data(user_type="opponent", duel_id=duel_id)
+                        # Проверка и преобразование в list[int] при необходимости
+                        if isinstance(question_ids, str):
+                            question_ids = json.loads(question_ids)
+                        await duel_first_question_kg(callback_query, question_ids, state)
+                else:
+                    count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
+                    if count_duels_with_opponent <= 4:
+                        await state.update_data(user_type="creator")
+                        question_ids = await rq.get_random_questions_by_subjects(subject_id1=2, subject_id2=4)
+                        await duel_first_question_kg(callback_query, question_ids, state)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption="Сиз 5 дуэль ачып койдуңуз, аларды эч ким өтө элек.\n"
+                                    "_Жок дегенде бирөөн башка бирөө өткөн соң дуэль ача аласыз._",
+                            reply_markup=kb.to_user_account_kg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption="Сизде дуэлге катышуу үчүн рубин жетишсиз\n"
+                        "Жок дегенде 10 рубин болуу керек.",
+                reply_markup=kb.to_user_account_kg
+            )
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForDuel,
-            caption="Сизде дуэлге катышуу үчүн рубин жетишсиз\n"
-                    "Жок дегенде 10 рубин болуу керек.",
+            caption="Боттун башка колдонуучулары менен дуэлде атаандашып, ойноо үчүн сизге VIP статус керек. "
+                    "VIP статусту алуу үчүн өздүк бөлмөгө кирип, VIP баскычын басып, админге жазыңыз.",
             reply_markup=kb.to_user_account_kg
         )
         # Добавляем сообщение бота
@@ -4070,47 +4082,15 @@ async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
     await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
-    has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
+    is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
-    if has_rubies:
-        is_duel = await rq.has_unfinished_duels(telegram_id=telegram_id)
+    if is_vip:
+        has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
 
-        if not is_duel:
-            count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
-            if count_duels_with_opponent <= 4:
-                await state.update_data(user_type="creator")
-                question_ids = await rq.get_random_questions_by_subjects(subject_id1=1, subject_id2=3)
-                await duel_first_question_ru(callback_query, question_ids, state)
-            else:
-                sent_message = await callback_query.message.answer_photo(
-                    photo=utils.PictureForDuel,
-                    caption="Вы открыли 5 дуэлей, которые никто не завершил.\n"
-                            "_По крайней мере, вы можете сразиться с кем-то после того, как кто-то другой прошел._",
-                    reply_markup=kb.to_user_account_ru,
-                        parse_mode=ParseMode.MARKDOWN
-                )
-                # Добавляем сообщение бота
-                user_data['bot_messages'].append(sent_message.message_id)
-        else:
-            duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
-            if duel_id:
-                question_ids = await rq.get_duel_questions(duel_id=duel_id)
-                if question_ids is None:
-                    sent_message = await callback_query.message.answer_photo(
-                        photo=utils.PictureForDuel,
-                        caption="Ошибка при получении дуэльных вопросов.\n"
-                                "Попробуйте войти с самого начала.",
-                        reply_markup=kb.to_user_account_ru
-                    )
-                    # Добавляем сообщение бота
-                    user_data['bot_messages'].append(sent_message.message_id)
-                else:
-                    await state.update_data(user_type="opponent", duel_id=duel_id)
-                    # Проверка и преобразование в list[int] при необходимости
-                    if isinstance(question_ids, str):
-                        question_ids = json.loads(question_ids)
-                    await duel_first_question_ru(callback_query, question_ids, state)
-            else:
+        if has_rubies:
+            is_duel = await rq.has_unfinished_duels(telegram_id=telegram_id)
+
+            if not is_duel:
                 count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
                 if count_duels_with_opponent <= 4:
                     await state.update_data(user_type="creator")
@@ -4119,18 +4099,62 @@ async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
                 else:
                     sent_message = await callback_query.message.answer_photo(
                         photo=utils.PictureForDuel,
-                        caption="Вы открыли 5 дуэлей, которые никто еще не прошел.\n"
-                                "_По крайней мере, вы можете начать дуэль после того, как кто-то другой пройдет._",
+                        caption="Вы открыли 5 дуэлей, которые никто не завершил.\n"
+                                "_По крайней мере, вы можете сразиться с кем-то после того, как кто-то другой прошел._",
                         reply_markup=kb.to_user_account_ru,
-                        parse_mode=ParseMode.MARKDOWN
+                            parse_mode=ParseMode.MARKDOWN
                     )
                     # Добавляем сообщение бота
                     user_data['bot_messages'].append(sent_message.message_id)
+            else:
+                duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
+                if duel_id:
+                    question_ids = await rq.get_duel_questions(duel_id=duel_id)
+                    if question_ids is None:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption="Ошибка при получении дуэльных вопросов.\n"
+                                    "Попробуйте войти с самого начала.",
+                            reply_markup=kb.to_user_account_ru
+                        )
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
+                    else:
+                        await state.update_data(user_type="opponent", duel_id=duel_id)
+                        # Проверка и преобразование в list[int] при необходимости
+                        if isinstance(question_ids, str):
+                            question_ids = json.loads(question_ids)
+                        await duel_first_question_ru(callback_query, question_ids, state)
+                else:
+                    count_duels_with_opponent = await rq.count_duels_with_opponent_pending(telegram_id=telegram_id)
+                    if count_duels_with_opponent <= 4:
+                        await state.update_data(user_type="creator")
+                        question_ids = await rq.get_random_questions_by_subjects(subject_id1=1, subject_id2=3)
+                        await duel_first_question_ru(callback_query, question_ids, state)
+                    else:
+                        sent_message = await callback_query.message.answer_photo(
+                            photo=utils.PictureForDuel,
+                            caption="Вы открыли 5 дуэлей, которые никто еще не прошел.\n"
+                                    "_По крайней мере, вы можете начать дуэль после того, как кто-то другой пройдет._",
+                            reply_markup=kb.to_user_account_ru,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForDuel,
+                caption="У вас недостаточно рубина, чтобы участвовать в дуэли\n"
+                        "Должно быть не менее 10 рубинов.",
+                reply_markup=kb.to_user_account_ru
+            )
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForDuel,
-            caption="У вас недостаточно рубина, чтобы участвовать в дуэли\n"
-                    "Должно быть не менее 10 рубинов.",
+            caption="Чтобы посоревноваться с друзями в дуэле вам надо VIP подписка. Для этого в личном кабинете выберите "
+                    "кнопку VIP и свяжитесь с админом.",
             reply_markup=kb.to_user_account_ru
         )
         # Добавляем сообщение бота

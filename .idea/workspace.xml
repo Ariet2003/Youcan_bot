@@ -6,11 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="864c11c3-89ae-451d-b617-aa10784d583b" name="Changes" comment="All folders and files are created and launched">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/database/requests.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/database/requests.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/register/registerHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/register/registerHandlers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/users/admin/adminHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/admin/adminHandlers.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/users/user/userHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userHandlers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -222,7 +218,7 @@
       <workItem from="1731481493166" duration="6977000" />
       <workItem from="1731505614034" duration="15261000" />
       <workItem from="1731564938372" duration="47792000" />
-      <workItem from="1731731112320" duration="20876000" />
+      <workItem from="1731731112320" duration="22474000" />
     </task>
     <task id="LOCAL-00001" summary="All folders and files are created and launched">
       <option name="closed" value="true" />
@@ -331,10 +327,15 @@
           <line>2038</line>
           <option name="timeStamp" value="8" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/app/users/user/userHandlers.py</url>
+          <line>4084</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1731752715107" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/youcan_telegram_bot$main.coverage" NAME="main Coverage Results" MODIFIED="1731754322770" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>
