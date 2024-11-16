@@ -97,9 +97,20 @@ async def get_user_name(telegram_id: str) -> Optional[str]:
         return name
 
 # Write analogy questions to the DB
-async def write_question(user_id: int, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending") -> bool:
+async def write_question(telegram_id: str, subject_id: int, content: str, option_a: str, option_b: str, option_v: str, option_g: str, correct_option: str, status: str = "pending") -> bool:
     async with async_session() as session:
         async with session.begin():
+            # Находим user_id по telegram_id
+            result = await session.execute(
+                select(User.user_id).where(User.telegram_id == telegram_id)
+            )
+            user_id = result.scalar_one_or_none()
+
+            # Если user_id не найден, возвращаем False
+            if user_id is None:
+                print(f"Пользователь с telegram_id {telegram_id} не найден.")
+                return False
+
             # Проверка существования вопроса с такими же текстом и вариантами ответов
             existing_question = await session.execute(
                 select(Question)
@@ -134,6 +145,7 @@ async def write_question(user_id: int, subject_id: int, content: str, option_a: 
             # Возвращаем True, чтобы показать, что вопрос был успешно добавлен
             return True
 
+
 # Update the number of rubies the user has
 async def add_rubies(telegram_id: str, rubies_amount: int):
     async with async_session() as session:
@@ -146,16 +158,16 @@ async def add_rubies(telegram_id: str, rubies_amount: int):
             await session.commit()
 
 
-# Request to get and review the oldest pending question for a specific subject_id (by largest question_id)
+# Request to get and review the oldest pending question for a specific subject_id (by smallest question_id)
 async def get_and_review_oldest_pending_question(subject_id: int) -> Optional[dict]:
     async with async_session() as session:
         # Начинаем транзакцию
         async with session.begin():
-            # Запрос для получения самого большого question_id с статусом 'pending' и указанным subject_id
+            # Запрос для получения самого маленького question_id со статусом 'pending' и указанным subject_id
             result = await session.execute(
                 select(Question)
                 .filter(Question.status == 'pending', Question.subject_id == subject_id)
-                .order_by(Question.question_id.desc())  # Сортировка по question_id в убывающем порядке
+                .order_by(Question.question_id.asc())  # Сортировка по question_id в возрастающем порядке
             )
             question = result.scalars().first()
 
@@ -181,6 +193,7 @@ async def get_and_review_oldest_pending_question(subject_id: int) -> Optional[di
                 }
 
     return None  # Если нет вопросов со статусом 'pending' и указанным subject_id
+
 
 
 
@@ -1447,3 +1460,38 @@ async def get_duel_results(telegram_id: str):
     except Exception as e:
         print(f"Ошибка при получении результатов дуэлей: {e}")
         return None
+
+
+# Count the number of answered questions for specific subjects by a specific user
+async def count_user_answered_questions(telegram_id: str, subject_id1: int, subject_id2: int) -> int:
+    async with async_session() as session:
+        async with session.begin():
+            # Выполняем запрос для подсчета количества вопросов, отвеченных пользователем, по двум subject_id
+            result = await session.execute(
+                select(func.count(UserAnswer.answer_id))
+                .join(Question, Question.question_id == UserAnswer.question_id)
+                .join(User, User.user_id == UserAnswer.user_id)
+                .filter(
+                    User.telegram_id == telegram_id,
+                    Question.subject_id.in_([subject_id1, subject_id2])
+                )
+            )
+            # Получаем результат
+            answered_count = result.scalar()
+
+            return answered_count or 0
+
+# Check if a user has VIP status
+async def is_vip_user(telegram_id: str) -> bool:
+    async with async_session() as session:
+        async with session.begin():
+            # Запрос для получения статуса подписки пользователя
+            result = await session.execute(
+                select(User.subscription_status)
+                .where(User.telegram_id == telegram_id)
+            )
+            # Получаем статус подписки
+            subscription_status = result.scalar()
+
+            # Возвращаем True, если пользователь VIP, иначе False
+            return subscription_status is True

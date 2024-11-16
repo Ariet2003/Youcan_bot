@@ -17,29 +17,39 @@ from app.utils import sent_message_add_screen_ids, router
 
 
 # Function to delete previous messages
-async def delete_previous_messages(message: Message):
-    # Delete all user messages except "/start"
-    for msg_id in sent_message_add_screen_ids['user_messages']:
+async def delete_previous_messages(message: Message, telegram_id: str):
+    # Проверяем, есть ли записи для этого пользователя
+    if telegram_id not in sent_message_add_screen_ids:
+        sent_message_add_screen_ids[telegram_id] = {'bot_messages': [], 'user_messages': []}
+
+    user_data = sent_message_add_screen_ids[telegram_id]
+
+    # Удаляем все сообщения пользователя, кроме "/start"
+    for msg_id in user_data['user_messages']:
         try:
             if msg_id != message.message_id or message.text != "/start":
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+                await message.bot.delete_message(chat_id=telegram_id, message_id=msg_id)
         except Exception as e:
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
-    sent_message_add_screen_ids['user_messages'].clear()
+    user_data['user_messages'].clear()
 
-    # Delete all bot messages
-    for msg_id in sent_message_add_screen_ids['bot_messages']:
+    # Удаляем все сообщения бота
+    for msg_id in user_data['bot_messages']:
         try:
             if msg_id != message.message_id:
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+                await message.bot.delete_message(chat_id=telegram_id, message_id=msg_id)
         except Exception as e:
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
-    sent_message_add_screen_ids['bot_messages'].clear()
+    user_data['bot_messages'].clear()
 
 # Administrator's personal account
 async def admin_account(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_tg_id = str(message.chat.id)
     name = await rq.get_user_name(user_tg_id)
     sent_message = await message.answer_photo(
@@ -47,25 +57,34 @@ async def admin_account(message: Message, state: FSMContext):
         caption=f'Привет, {name}',
         reply_markup=kb.profile_button,
         parse_mode=ParseMode.HTML)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Back to personal account
 @router.callback_query(F.data.in_('to_home_admin'))
 async def go_home_admin(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['bot_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(callback_query.message.message_id)
     await admin_account(callback_query.message, state)
 
 # Validate questions
 @router.callback_query(F.data == 'validate_questions')
 async def validate_questions(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForValidationQuestions,
         caption=f'Выберите дисциплину, в которой вы хотите проверить вопросы.',
         reply_markup=kb.validate_questions,
         parse_mode=ParseMode.HTML)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Функция для экранирования символов, которые могут вызвать ошибку в Markdown
@@ -75,8 +94,12 @@ def escape_markdown(text: str) -> str:
 # Handler for initializing grammar question check
 @router.callback_query(F.data == 'validate_grammar_ru')
 async def validate_grammar_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     await state.update_data(subject_id=1)
 
     question_data = await rq.get_and_review_oldest_pending_question(subject_id=1)
@@ -98,12 +121,26 @@ async def validate_grammar_ru(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.verify_question,
             parse_mode=ParseMode.MARKDOWN_V2
         )
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await callback_query.message.answer(
+            text=f"В базе нет не проверенных вопросов, вы все проверили",
+            reply_markup=kb.to_admin_account,
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Handler for initializing grammar question check
 @router.callback_query(F.data == 'validate_grammar_kg')
 async def validate_grammar_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     await state.update_data(subject_id=2)
 
     question_data = await rq.get_and_review_oldest_pending_question(subject_id=2)
@@ -125,12 +162,26 @@ async def validate_grammar_kg(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.verify_question,
             parse_mode=ParseMode.MARKDOWN_V2
         )
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
+    else:
+        sent_message = await callback_query.message.answer(
+            text=f"В базе нет не проверенных вопросов, вы все проверили",
+            reply_markup=kb.to_admin_account,
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Handler for initializing analogy question check
 @router.callback_query(F.data == 'validate_analogy_ru')
 async def validate_analogy_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     await state.update_data(subject_id=3)
 
     question_data = await rq.get_and_review_oldest_pending_question(subject_id=3)
@@ -152,20 +203,26 @@ async def validate_analogy_ru(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.verify_question,
             parse_mode=ParseMode.MARKDOWN_V2
         )
-
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer(
-            text=f'Нет доступных новых вопросов для проверки.',
+            text=f"В базе нет не проверенных вопросов, вы все проверили",
             reply_markup=kb.to_admin_account,
-            parse_mode=ParseMode.HTML)
-
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Handler for initializing analogy question check
 @router.callback_query(F.data == 'validate_analogy_kg')
 async def validate_analogy_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     await state.update_data(subject_id=4)
 
     question_data = await rq.get_and_review_oldest_pending_question(subject_id=4)
@@ -187,14 +244,16 @@ async def validate_analogy_kg(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.verify_question,
             parse_mode=ParseMode.MARKDOWN_V2
         )
-
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer(
-            text=f'Нет доступных новых вопросов для проверки.',
+            text=f"В базе нет не проверенных вопросов, вы все проверили",
             reply_markup=kb.to_admin_account,
-            parse_mode=ParseMode.HTML)
-
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Handler for the "Correct" button - status 'approved'
 @router.callback_query(F.data == 'correct_question')
@@ -206,9 +265,13 @@ async def approve_question(callback_query: CallbackQuery, state: FSMContext):
     if question_id is not None:
         success = await rq.update_question_status(question_id, 'approved')
         if success:
-            if subject_id == 2:
+            if subject_id == 1:
+                await validate_grammar_ru(callback_query, state)
+            elif subject_id == 2:
                 await validate_grammar_kg(callback_query, state)
-            else:
+            elif subject_id == 3:
+                await validate_analogy_ru(callback_query, state)
+            elif subject_id == 4:
                 await validate_analogy_kg(callback_query, state)
         else:
             await callback_query.message.answer(text="Произошла ошибка при обновлении статуса вопроса.",
@@ -227,9 +290,13 @@ async def reject_question(callback_query: CallbackQuery, state: FSMContext):
     if question_id is not None:
         success = await rq.update_question_status(question_id, 'rejected')
         if success:
-            if subject_id == 2:
+            if subject_id == 1:
+                await validate_grammar_ru(callback_query, state)
+            elif subject_id == 2:
                 await validate_grammar_kg(callback_query, state)
-            else:
+            elif subject_id == 3:
+                await validate_analogy_ru(callback_query, state)
+            elif subject_id == 4:
                 await validate_analogy_kg(callback_query, state)
         else:
             await callback_query.message.answer(text="Произошла ошибка при обновлении статуса вопроса.",
@@ -258,20 +325,29 @@ async def return_to_pending(callback_query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'add_to_vip')
 async def add_to_vip(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForAddUserVIP,
         caption="Отправьте Telegram ID пользователя",
         reply_markup=kb.to_admin_account
     )
     await state.set_state(st.AddVIPUser.write_tg_id)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.AddVIPUser.write_tg_id)
 async def add_to_vip_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_tg_id = message.text
 
     is_added = await rq.activate_subscription(telegram_id=user_tg_id)
@@ -282,7 +358,8 @@ async def add_to_vip_finish(message: Message, state: FSMContext):
             caption="Пользователь успешно добавлен!",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer_photo(
             photo=utils.pictureErrorProcess,
@@ -290,25 +367,35 @@ async def add_to_vip_finish(message: Message, state: FSMContext):
                     "\nМожет быть уже добавлен в VIP или нету такого пользователя.",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 @router.callback_query(F.data == 'send_notifications')
 async def send_notifications(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForNotification,
         caption="Отправьте фотографию для прикрепления к уведомлению.",
         reply_markup=kb.to_admin_account
     )
     await state.set_state(st.SendNotification.add_photo)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.SendNotification.add_photo)
 async def send_notifications_write_text(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     photo_id = message.photo[-1].file_id
     await state.update_data(photo_id=photo_id)
     sent_message = await message.answer_photo(
@@ -317,12 +404,17 @@ async def send_notifications_write_text(message: Message, state: FSMContext):
         reply_markup=kb.to_admin_account
     )
     await state.set_state(st.SendNotification.add_text)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.SendNotification.add_text)
 async def send_notifications_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     text_notification = message.text
     await state.update_data(text_notification=text_notification)
     data_notification = await state.get_data()
@@ -333,12 +425,17 @@ async def send_notifications_finish(message: Message, state: FSMContext):
         reply_markup=kb.send_notification
     )
     await state.set_state(st.SendNotification.add_text)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'send_notification_all')
 async def send_notification_all(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     data_notification = await state.get_data()
     photo_id = data_notification.get("photo_id")
     text_notification = data_notification.get("text_notification")
@@ -346,7 +443,8 @@ async def send_notification_all(callback_query: CallbackQuery, state: FSMContext
     # Проверка, был ли передан photo_id и текст, и отправка уведомлений всем пользователям
     sent_message = await callback_query.message.answer("Уведомления отправляются всем пользователям...",
                                                             reply_markup=kb.to_admin_account)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
     # Отправка уведомлений всем пользователям
     await rq.send_notification_to_all_users(text_notification, photo_id)
@@ -354,53 +452,74 @@ async def send_notification_all(callback_query: CallbackQuery, state: FSMContext
 # Statistics
 @router.callback_query(F.data == 'statistics')
 async def statistics(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForStatistics,
         caption="Выберите раздел для просмотра статистики",
         reply_markup=kb.statistic
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'notification_statistics')
 async def notification_statistics(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     formatted_notifications = await rq.get_last_50_notifications()
 
     if formatted_notifications:
         sent_message = await callback_query.message.answer(text=formatted_notifications,
                                             reply_markup=kb.to_admin_account)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer(text="Не удалось получить данные о уведомлениях.",
                                             reply_markup=kb.to_admin_account)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'all_statistics')
 async def all_statistics(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     all_statistics = await rq.get_all_statistics()
 
     if all_statistics:
         sent_message = await callback_query.message.answer(text=all_statistics,
                                                            reply_markup=kb.to_admin_account)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer(text="Не удалось получить данные о статистике.",
                                                            reply_markup=kb.to_admin_account)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Обработчик для отображения списка пользователей
 @router.callback_query(F.data == 'show_users')
 async def show_users(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     data = await state.get_data()
     offset = data.get('offset', 0)
     limit = 50
@@ -424,7 +543,8 @@ async def show_users(callback_query: CallbackQuery, state: FSMContext):
     )
     # Сохранение текущего смещения в состоянии для навигации
     await state.update_data(offset=offset)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Обработчики для навигации между страницами пользователей
 @router.callback_query(F.data == 'show_users_next')
@@ -443,21 +563,30 @@ async def show_users_prev(callback_query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'list_users')
 async def list_users(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForListUsers,
         caption="Выберите нужную вам кнопку.",
         reply_markup=kb.list_users
     )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'delete_user')
 async def delete_user(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForListUsers,
@@ -467,16 +596,20 @@ async def delete_user(callback_query: CallbackQuery, state: FSMContext):
 
     await state.set_state(st.DeleteUser.write_tg_id)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.message(st.DeleteUser.write_tg_id)
 async def delete_user_yes_no(message: Message, state: FSMContext):
     user_tg_id = message.text.strip()  # Получаем Telegram ID пользователя
 
-    # Убираем старые сообщения
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     # Попытка удаления пользователя
     is_deleted = await rq.delete_user_by_id(user_tg_id)
@@ -492,7 +625,8 @@ async def delete_user_yes_no(message: Message, state: FSMContext):
             reply_markup=kb.to_admin_account
         )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()  # Закрываем состояние после обработки
 
 
@@ -500,15 +634,20 @@ async def delete_user_yes_no(message: Message, state: FSMContext):
 @router.callback_query(F.data == 'user_search')
 async def user_search(callback_query: CallbackQuery, state: FSMContext):
     # Убираем старые сообщения
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Запрашиваем у пользователя, что он хочет искать
     sent_message = await callback_query.message.answer(
         "Введите данные для поиска пользователя:\n(ФИО, Telegram ID или номер телефона)",
         reply_markup=kb.to_admin_account  # клавиатура "Назад" в админку
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
     # Устанавливаем состояние для ожидания ввода
     await state.set_state(st.SearchUser.user_search_input)
 
@@ -516,8 +655,12 @@ async def user_search(callback_query: CallbackQuery, state: FSMContext):
 # Хендлер для обработки ввода поиска
 @router.message(st.SearchUser.user_search_input)
 async def handle_search_input(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     search_query = message.text.strip()
 
     # Получаем список пользователей, которые соответствуют запросу
@@ -539,24 +682,34 @@ async def handle_search_input(message: Message, state: FSMContext):
             disable_web_page_preview=True
         )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()  # Закрытие состояния после завершения поиска
 
 @router.callback_query(F.data == 'admin_settings')
 async def admin_settings(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForAdminSetting,
         caption="Выберите команду.",
         reply_markup=kb.admin_seeting
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'reset_all_vip_statuses')
 async def reset_all_vip_statuses(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
 
     sent_message = await callback_query.message.answer(
@@ -565,12 +718,17 @@ async def reset_all_vip_statuses(callback_query: CallbackQuery, state: FSMContex
         reply_markup=kb.to_admin_account
     )
     await state.set_state(st.ResetVipStatus.confirm_time)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ResetVipStatus.confirm_time)
 async def confirm_reset_vip_status(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     user_input = message.text.strip()
 
@@ -587,14 +745,16 @@ async def confirm_reset_vip_status(message: Message, state: FSMContext):
             text="Все VIP-статусы успешно сброшены.",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
     else:
         sent_message = await message.answer(
             text="Неверное время. Сброс VIP-статусов отменен.",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
     # Очистка состояния
     await state.clear()
@@ -602,8 +762,12 @@ async def confirm_reset_vip_status(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == 'exit_admin_panel')
 async def exit_admin_panel(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer(
         text=f"Вы действительно хотите выйти из админки?\n"
@@ -611,12 +775,17 @@ async def exit_admin_panel(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.to_admin_account
     )
     await state.set_state(st.ExitInAdminPanel.confirm_time)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ExitInAdminPanel.confirm_time)
 async def confirm_exit_admin_panel(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     user_input = message.text.strip()
     tg_id_admin = message.from_user.id
@@ -634,39 +803,51 @@ async def confirm_exit_admin_panel(message: Message, state: FSMContext):
                 text="Вы успешно вышли из админки!"
                      "\nДля входа в кабинет обычного пользователя нажмите /start"
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Не удалось выйти из админки!",
                 reply_markup=kb.to_admin_account
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Неверное время. Не удалось выйти из админки!",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
     # Очистка состояния
     await state.clear()
 
 @router.callback_query(F.data == 'reset_vip_status')
 async def reset_vip_status(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureResetVipStatus,
         caption="Введите Telegram ID пользователя для сброса статуса.",
         reply_markup=kb.to_admin_account
     )
     await state.set_state(st.ResetOneVioStatus.write_tg_id)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ResetOneVioStatus.write_tg_id)
 async def reset_vip_status_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_tg_id = message.text
 
     is_deleted = await rq.reset_user_subscription_status(telegram_id=user_tg_id)
@@ -676,11 +857,13 @@ async def reset_vip_status_finish(message: Message, state: FSMContext):
             text=f"Статус пользователя с Telegram ID: {user_tg_id} успешно сброшен!",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text=f"Не удалось сбросить статус пользователя!",
             reply_markup=kb.to_admin_account
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()

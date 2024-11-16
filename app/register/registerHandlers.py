@@ -13,26 +13,40 @@ from app.utils import sent_message_add_screen_ids, router
 
 
 # Function to delete previous messages
-async def delete_previous_messages(message: Message):
-    for msg_id in sent_message_add_screen_ids['user_messages']:
+async def delete_previous_messages(message: Message, telegram_id: str):
+    # Проверяем, есть ли записи для этого пользователя
+    if telegram_id not in sent_message_add_screen_ids:
+        sent_message_add_screen_ids[telegram_id] = {'bot_messages': [], 'user_messages': []}
+
+    user_data = sent_message_add_screen_ids[telegram_id]
+
+    # Удаляем все сообщения пользователя, кроме "/start"
+    for msg_id in user_data['user_messages']:
         try:
             if msg_id != message.message_id or message.text != "/start":
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+                await message.bot.delete_message(chat_id=telegram_id, message_id=msg_id)
         except Exception as e:
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
-    sent_message_add_screen_ids['user_messages'].clear()
+    user_data['user_messages'].clear()
 
-    for msg_id in sent_message_add_screen_ids['bot_messages']:
+    # Удаляем все сообщения бота
+    for msg_id in user_data['bot_messages']:
         try:
-            await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+            if msg_id != message.message_id:
+                await message.bot.delete_message(chat_id=telegram_id, message_id=msg_id)
         except Exception as e:
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
-    sent_message_add_screen_ids['bot_messages'].clear()
+    user_data['bot_messages'].clear()
 
 
 # Start
 @router.message(CommandStart())
 async def start(message: Message, state: FSMContext):
+    tuid = message.chat.id
+    # Инициализируем словарь для нового пользователя, если его еще нет
+    if tuid not in sent_message_add_screen_ids:
+        sent_message_add_screen_ids[tuid] = {'bot_messages': [], 'user_messages': []}
+    user_data = sent_message_add_screen_ids[tuid]
     user_tg_id = str(message.from_user.id)
     is_admin = await rq.check_admin(user_tg_id)
 
@@ -48,26 +62,37 @@ async def start(message: Message, state: FSMContext):
                 reply_markup=kb.languages
             )
             await state.set_state(st.RegisterStates.language)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Language selection
 @router.callback_query(F.data == 'kg')
 async def get_name_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer(text="Аты-жөнүңүздү жазыңыз(ФИО)")
     await state.set_state(st.RegisterStates.name_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'ru')
 async def get_name_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer(text="Напишите ваше имя и фамилию (ФИО).")
     await state.set_state(st.RegisterStates.name_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Function to validate phone number format
@@ -79,30 +104,44 @@ async def validity_check_phone_number(phone_number: str) -> bool:
 # Process user information after name input
 @router.message(st.RegisterStates.name_kg)
 async def get_number_kg(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     name = message.text
     await state.update_data(name_kg=name)
     sent_message = await message.answer(text="Телефон номериңизди жөнөтүңүз. Үлгү: +996700123456")
     await state.set_state(st.RegisterStates.phone_number_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.message(st.RegisterStates.name_ru)
 async def get_number_ru(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     name = message.text
     await state.update_data(name_ru=name)
     sent_message = await message.answer(text="Отправьте ваш номер телефона. Пример: +996700123456")
     await state.set_state(st.RegisterStates.phone_number_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Process phone number and finalize registration for both languages
 async def process_phone_number(message: Message, state: FSMContext, lang: str):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     phone_number = message.text
     is_valid = await validity_check_phone_number(phone_number)
@@ -122,7 +161,8 @@ async def process_phone_number(message: Message, state: FSMContext, lang: str):
             text="Кечиресиз, туура эмес формат. Үлгү: +996700123456" if lang == 'kg'
             else "Извините, неверный формат. Пример: +996700123456"
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.message(st.RegisterStates.phone_number_kg)
@@ -142,8 +182,12 @@ def validate_loginadmin_command(text: str) -> bool:
 
 @router.message(F.text.func(validate_loginadmin_command))
 async def handle_loginadmin(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_tg_id = str(message.from_user.id)
     user_tg_username = str(message.from_user.username)
     await rq.set_admin(user_tg_id, user_tg_username)

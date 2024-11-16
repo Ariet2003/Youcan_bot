@@ -18,37 +18,102 @@ from app.ai_module import chatgpt_request as gpt
 
 
 
+# # Function to delete previous messages
+# async def delete_previous_messages(message: Message):
+#     # Delete all user messages except "/start"
+#     for msg_id in sent_message_add_screen_ids['user_messages']:
+#         try:
+#             if msg_id != message.message_id or message.text != "/start":
+#                 await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+#         except Exception as e:
+#             print(f"Не удалось удалить сообщение {msg_id}: {e}")
+#     sent_message_add_screen_ids['user_messages'].clear()
+#
+#     # Delete all bot messages
+#     for msg_id in sent_message_add_screen_ids['bot_messages']:
+#         try:
+#             if msg_id != message.message_id:
+#                 await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+#         except Exception as e:
+#             print(f"Не удалось удалить сообщение {msg_id}: {e}")
+#     sent_message_add_screen_ids['bot_messages'].clear()
+
 # Function to delete previous messages
-async def delete_previous_messages(message: Message):
-    # Delete all user messages except "/start"
-    for msg_id in sent_message_add_screen_ids['user_messages']:
+async def delete_previous_messages(message: Message, telegram_id: str):
+    # Проверяем, есть ли записи для этого пользователя
+    if telegram_id not in sent_message_add_screen_ids:
+        sent_message_add_screen_ids[telegram_id] = {'bot_messages': [], 'user_messages': []}
+
+    user_data = sent_message_add_screen_ids[telegram_id]
+
+    # Удаляем все сообщения пользователя, кроме "/start"
+    for msg_id in user_data['user_messages']:
         try:
             if msg_id != message.message_id or message.text != "/start":
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+                await message.bot.delete_message(chat_id=telegram_id, message_id=msg_id)
         except Exception as e:
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
-    sent_message_add_screen_ids['user_messages'].clear()
+    user_data['user_messages'].clear()
 
-    # Delete all bot messages
-    for msg_id in sent_message_add_screen_ids['bot_messages']:
+    # Удаляем все сообщения бота
+    for msg_id in user_data['bot_messages']:
         try:
             if msg_id != message.message_id:
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+                await message.bot.delete_message(chat_id=telegram_id, message_id=msg_id)
         except Exception as e:
             print(f"Не удалось удалить сообщение {msg_id}: {e}")
-    sent_message_add_screen_ids['bot_messages'].clear()
+    user_data['bot_messages'].clear()
+
+
+# # User's personal account
+# async def user_account(message: Message, state: FSMContext):
+#     tuid = message.chat.id
+#     user_data = sent_message_add_screen_ids[tuid]
+#     # Добавляем сообщение пользователя
+#     user_data['user_messages'].append(message.message_id)
+#
+#     await state.clear()
+#     user_tg_id = str(message.chat.id)
+#     language = await rq.get_user_language(user_tg_id)
+#     name = await rq.get_user_name(user_tg_id)
+#
+#     await delete_previous_messages(message)
+#
+#     if language == 'ru':
+#         sent_message = await message.answer_photo(
+#             photo=utils.pictureOfUsersPersonalAccountRU,
+#             caption=f'Привет, {name}'
+#                     f'\n<a href="https://telegra.ph/lpshchzk-10-30">Как бот работает?</a> 👈',
+#         reply_markup=kb.profile_button_ru,
+#         parse_mode=ParseMode.HTML)
+#     else:
+#         sent_message = await message.answer_photo(
+#             photo=utils.pictureOfUsersPersonalAccountRU,
+#             caption=f'Салам, {name}'
+#                     f'\n<a href="https://telegra.ph/Bizdin-ORTga-dayardanuu-%D2%AFch%D2%AFn-Telegram-bot-kandaj-ishtejt-10-30">Бот кандай иштейт?</a> 👈',
+#             reply_markup=kb.profile_button_kg,
+#             parse_mode=ParseMode.HTML)
+#
+#     sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+
 
 # User's personal account
 async def user_account(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
+    tuid = message.chat.id
+    # Инициализируем словарь для нового пользователя, если его еще нет
+    if tuid not in sent_message_add_screen_ids:
+        sent_message_add_screen_ids[tuid] = {'bot_messages': [], 'user_messages': []}
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
+
+
     await state.clear()
     user_tg_id = str(message.chat.id)
     language = await rq.get_user_language(user_tg_id)
     name = await rq.get_user_name(user_tg_id)
-
-    await delete_previous_messages(message)
-
-
 
     if language == 'ru':
         sent_message = await message.answer_photo(
@@ -65,9 +130,8 @@ async def user_account(message: Message, state: FSMContext):
             reply_markup=kb.profile_button_kg,
             parse_mode=ParseMode.HTML)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
-
-
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Хендлер для обработки команды "/photo"
 @router.message(Command("photo"))
@@ -85,8 +149,10 @@ async def photo_handler(message: Message):
 # Back to personal account
 @router.callback_query(F.data.in_(['to_home_ru', 'to_home_kg']))
 async def go_home_handler(callback_query: CallbackQuery, state: FSMContext):
-    # Добавление ID сообщения в список
-    sent_message_add_screen_ids['bot_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(callback_query.message.message_id)
 
     # Вызов функции для отображения личного кабинета
     await user_account(callback_query.message, state)
@@ -95,12 +161,17 @@ async def go_home_handler(callback_query: CallbackQuery, state: FSMContext):
 # Handler for creating a question in ru
 @router.callback_query(F.data == 'create_test_ru')
 async def create_question(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(photo=utils.pictureForTheTestCreationScreenKG,
                                                              caption='Выберите предмет, по которому вы хотели бы создать вопрос.',
                                                              reply_markup=kb.subjects_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 ##############################################################
@@ -110,21 +181,31 @@ async def create_question(callback_query: CallbackQuery, state: FSMContext):
 # Handler for creating a question in kg
 @router.callback_query(F.data == 'creat_test_kg')
 async def create_question(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForTheTestCreationScreenKG,
         caption='Кайсы бөлүктөн суроо тузүүнү каалайсыз?',
         reply_markup=kb.subjects_kg
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
-
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Initial handler for entering question text
 @router.callback_query(F.data == 'analogy_kg')
 async def write_analogy_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForTheEditAnAnalogyKG,
@@ -132,15 +213,20 @@ async def write_analogy_question_kg(callback_query: CallbackQuery, state: FSMCon
         parse_mode=ParseMode.MARKDOWN
     )
     await state.set_state(st.CreatAnalogyQuestionsKG.create_question_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
-
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Handler for entering analogy question text
 @router.message(st.CreatAnalogyQuestionsKG.create_question_kg)
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     if message.text == "/start":
         await user_account(message, state)
@@ -174,14 +260,20 @@ async def get_question_text(message: Message, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.set_state(st.CreatAnalogyQuestionsKG.create_question_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # General handler for options A, B, V, and G
 async def get_option_analogy_kg(message: Message, state: FSMContext, option_key: str, next_state):
     # Сохранение сообщения пользователя для удаления позже
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     # Определение текста для вывода
     option_texts = {
         'A': 'Б',
@@ -233,8 +325,8 @@ async def get_option_analogy_kg(message: Message, state: FSMContext, option_key:
             parse_mode=ParseMode.MARKDOWN
         )
 
-    # Сохранение отправленного ботом сообщения для удаления позже
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handlers for entering options A, B, V, and G
@@ -275,8 +367,13 @@ async def get_option_g(message: Message, state: FSMContext):
     ['kg_creating_an_analogy_a', 'kg_creating_an_analogy_b', 'kg_creating_an_analogy_v', 'kg_creating_an_analogy_g']))
 async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     option_key = callback_query.data.split('_')[-1].upper()
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     if option_key == 'A':
         await state.update_data(correct_option='А')
     if option_key == 'B':
@@ -300,7 +397,8 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.option_buttons_for_creating_an_analogy_kg_finish,
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 
@@ -312,21 +410,32 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
 # Handler for creating a question in ru
 @router.callback_query(F.data == 'creat_test_ru')
 async def create_question(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForTheTestCreationScreenRU,
         caption='Из какого раздела вы хотите создать вопрос?',
         reply_markup=kb.subjects_ru
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Initial handler for entering question text
 @router.callback_query(F.data == 'analogy_ru')
 async def write_analogy_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForTheEditAnAnalogyRU,
@@ -334,15 +443,21 @@ async def write_analogy_question_ru(callback_query: CallbackQuery, state: FSMCon
         parse_mode=ParseMode.MARKDOWN
     )
     await state.set_state(st.CreatAnalogyQuestionsRU.create_question_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handler for entering analogy question text
 @router.message(st.CreatAnalogyQuestionsRU.create_question_ru)
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     if message.text == "/start":
         await user_account(message, state)
@@ -377,13 +492,19 @@ async def get_question_text(message: Message, state: FSMContext):
         )
         await state.set_state(st.CreatAnalogyQuestionsRU.create_question_ru)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # General handler for options A, B, V, and G in Russian
 async def get_option_analogy_ru(message: Message, state: FSMContext, option_key: str, next_state):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     data = await state.get_data()
     options = data.get('options', {})
 
@@ -434,7 +555,8 @@ async def get_option_analogy_ru(message: Message, state: FSMContext, option_key:
             parse_mode=ParseMode.MARKDOWN
         )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handlers for entering options A, B, V, and G in Russian
@@ -475,8 +597,13 @@ async def get_option_g_ru(message: Message, state: FSMContext):
     ['ru_creating_an_analogy_a', 'ru_creating_an_analogy_b', 'ru_creating_an_analogy_v', 'ru_creating_an_analogy_g']))
 async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     option_key = callback_query.data.split('_')[-1].upper()
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     if option_key == 'A':
         await state.update_data(correct_option='А')
@@ -501,7 +628,8 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.option_buttons_for_creating_an_analogy_ru_finish,
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 ##############################################################
@@ -511,8 +639,13 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
 # Initial handler for entering question text
 @router.callback_query(F.data == 'grammar_kg')
 async def write_grammar_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForTheEditAnGrammerKG,
@@ -520,15 +653,21 @@ async def write_grammar_question_kg(callback_query: CallbackQuery, state: FSMCon
         parse_mode=ParseMode.MARKDOWN
     )
     await state.set_state(st.CreatGrammarQuestionsKG.create_question_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handler for entering grammar question text
 @router.message(st.CreatGrammarQuestionsKG.create_question_kg)
 async def get_question_text(message: Message, state: FSMContext):
     question_text = message.text
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     if message.text == "/start":
         await user_account(message, state)
@@ -547,7 +686,8 @@ async def get_question_text(message: Message, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.set_state(st.CreatGrammarQuestionsKG.create_option_a_kg)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         err_sentences = await is_kyrgyz_sentence(question_text)
         sent_message = await message.answer_photo(
@@ -556,13 +696,19 @@ async def get_question_text(message: Message, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.set_state(st.CreatGrammarQuestionsKG.create_question_kg)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # General handler for options A, B, V, and G
 async def get_option_grammar_kg(message: Message, state: FSMContext, option_key: str, next_state):
     # Сохранение сообщения пользователя для удаления позже
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     # Определение текста для вывода
     option_text = {
@@ -610,8 +756,8 @@ async def get_option_grammar_kg(message: Message, state: FSMContext, option_key:
             parse_mode=ParseMode.MARKDOWN
         )
 
-    # Сохранение отправленного ботом сообщения для удаления позже
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handlers for entering options A, B, V, and G
@@ -652,8 +798,13 @@ async def get_option_g(message: Message, state: FSMContext):
     ['kg_creating_an_grammar_a', 'kg_creating_an_grammar_b', 'kg_creating_an_grammar_v', 'kg_creating_an_grammar_g']))
 async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     option_key = callback_query.data.split('_')[-1].upper()
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     if option_key == 'A':
         await state.update_data(correct_option='А')
@@ -678,7 +829,8 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.option_buttons_for_creating_a_grammar_kg_finish,
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 
@@ -689,8 +841,13 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
 # Initial handler for entering question text
 @router.callback_query(F.data == 'grammar_ru')
 async def write_grammar_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForTheEditAnGrammerRU,
@@ -698,7 +855,8 @@ async def write_grammar_question_ru(callback_query: CallbackQuery, state: FSMCon
         parse_mode=ParseMode.MARKDOWN
     )
     await state.set_state(st.CreatGrammarQuestionsRU.create_question_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handler for entering grammar question text
@@ -711,8 +869,13 @@ async def get_question_text(message: Message, state: FSMContext):
         await user_account(message, state)
         return
 
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     if await is_russian_sentence(question_text) == "Правильно":
         sent_message = await message.answer(
@@ -725,7 +888,8 @@ async def get_question_text(message: Message, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.set_state(st.CreatGrammarQuestionsRU.create_option_a_ru)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         err_sentences = await is_russian_sentence(question_text)
         sent_message = await message.answer_photo(
@@ -734,7 +898,8 @@ async def get_question_text(message: Message, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.set_state(st.CreatGrammarQuestionsRU.create_question_ru)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # General handler for options A, B, V, and G
 async def get_option_grammar_ru(message: Message, state: FSMContext, option_key: str, next_state):
@@ -743,8 +908,13 @@ async def get_option_grammar_ru(message: Message, state: FSMContext, option_key:
     options[option_key] = message.text
     await state.update_data(options=options)
 
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
 
     option_text = {
         'A': 'Б',
@@ -785,7 +955,8 @@ async def get_option_grammar_ru(message: Message, state: FSMContext, option_key:
             parse_mode=ParseMode.MARKDOWN
         )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Handlers for entering options A, B, V, and G
@@ -826,8 +997,13 @@ async def get_option_g(message: Message, state: FSMContext):
     ['ru_creating_an_grammar_a', 'ru_creating_an_grammar_b', 'ru_creating_an_grammar_v', 'ru_creating_an_grammar_g']))
 async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
     option_key = callback_query.data.split('_')[-1].upper()
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     if option_key == 'A':
         await state.update_data(correct_option='А')
@@ -852,14 +1028,20 @@ async def get_correct_option(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.option_buttons_for_creating_a_grammar_ru_finish,
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Write kg analogy questions to the DB
 @router.callback_query(F.data == 'kg_send_an_analogy')
 async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     data = await state.get_data()
     question_text = data['question_text']
@@ -877,7 +1059,7 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
         question_text, option_a, option_b, option_v, option_g
     )
 
-    is_not_have = await rq.write_question(user_id=user_id, subject_id=4, content=formatted_question_text,
+    is_not_have = await rq.write_question(telegram_id=user_id, subject_id=4, content=formatted_question_text,
                                           option_a=formatted_option_a, option_b=formatted_option_b,
                                           option_v=formatted_option_v, option_g=formatted_option_g,
                                           correct_option=correct_option, status="pending")
@@ -892,7 +1074,8 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.clear()
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.pictureBadRequests,
@@ -901,13 +1084,19 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_kg,
             parse_mode=ParseMode.MARKDOWN
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Write ru analogy questions to the DB
 @router.callback_query(F.data == 'ru_send_an_analogy')
 async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     data = await state.get_data()
     question_text = data['question_text']
@@ -925,7 +1114,7 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
         question_text, option_a, option_b, option_v, option_g
     )
 
-    is_not_have = await rq.write_question(user_id=user_id, subject_id=3, content=formatted_question_text,
+    is_not_have = await rq.write_question(telegram_id=user_id, subject_id=3, content=formatted_question_text,
                                           option_a=formatted_option_a, option_b=formatted_option_b,
                                           option_v=formatted_option_v, option_g=formatted_option_g,
                                           correct_option=correct_option, status="pending")
@@ -940,7 +1129,8 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.clear()
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.pictureBadRequests,
@@ -949,13 +1139,19 @@ async def write_analogy_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_ru,
             parse_mode=ParseMode.MARKDOWN
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Write ru grammar questions to the DB
 @router.callback_query(F.data == 'ru_send_an_grammar')
 async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     data = await state.get_data()
     question_text = data['question_text']
@@ -969,7 +1165,7 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
     option_g = options.get('G', '')
 
     # Записываем вопрос в БД
-    is_not_have = await rq.write_question(user_id=user_id, subject_id=1, content=question_text, option_a=option_a,
+    is_not_have = await rq.write_question(telegram_id=user_id, subject_id=1, content=question_text, option_a=option_a,
                                           option_b=option_b,
                                           option_v=option_v, option_g=option_g, correct_option=correct_option,
                                           status="pending")
@@ -984,7 +1180,8 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.clear()
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.pictureBadRequests,
@@ -993,13 +1190,19 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_ru,
             parse_mode=ParseMode.MARKDOWN
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Write kg grammar questions to the DB
 @router.callback_query(F.data == 'kg_send_an_grammar')
 async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     data = await state.get_data()
     question_text = data['question_text']
@@ -1013,7 +1216,7 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
     option_g = options.get('G', '')
 
     # Записываем вопрос в БД
-    is_not_have = await rq.write_question(user_id=user_id, subject_id=2, content=question_text, option_a=option_a, option_b=option_b,
+    is_not_have = await rq.write_question(telegram_id=user_id, subject_id=2, content=question_text, option_a=option_a, option_b=option_b,
                             option_v=option_v, option_g=option_g, correct_option=correct_option, status="pending")
     if is_not_have:
         await rq.add_rubies(telegram_id=user_id, rubies_amount=5)
@@ -1026,7 +1229,8 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.MARKDOWN
         )
         await state.clear()
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.pictureBadRequests,
@@ -1035,7 +1239,8 @@ async def write_grammar_to_db(callback_query: CallbackQuery, state: FSMContext):
             reply_markup=kb.to_user_account_kg,
             parse_mode=ParseMode.MARKDOWN
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == "back_to_account")
@@ -1046,8 +1251,13 @@ async def back_to_account(callback_query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'vip_ru')
 async def vip_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Получаем Telegram ID пользователя
     telegram_id = callback_query.from_user.id
@@ -1055,20 +1265,26 @@ async def vip_ru(callback_query: CallbackQuery, state: FSMContext):
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForGoToVIPRU,
         caption=(
-            f'<a href="https://telegra.ph/Bizdin-ORTga-dayardanuu-%D2%AFch%D2%AFn-Telegram-bot-kandaj-ishtejt-10-30">'
+            f'<a href="https://telegra.ph/Telegram-bot-dlya-podgotovki-k-ORT-Obychnye-i-VIP-polzovateli-11-16">'
             f"Каковы преимущества статуса VIP-пользователя?</a> 👈\n\n"
             f"Если вы хотите стать VIP-пользователем или у вас есть вопросы, нажмите кнопку ниже👇"
         ),
         reply_markup=kb.whatsapp_button_ru(telegram_id=telegram_id),
         parse_mode=ParseMode.HTML
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'vip_kg')
 async def vip_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Получаем Telegram ID пользователя
     telegram_id = callback_query.from_user.id
@@ -1076,19 +1292,25 @@ async def vip_kg(callback_query: CallbackQuery, state: FSMContext):
     sent_message = await callback_query.message.answer_photo(
         photo=utils.pictureForGoToVIPKG,
         caption=(
-            f'<a href="https://telegra.ph/Bizdin-ORTga-dayardanuu-%D2%AFch%D2%AFn-Telegram-bot-kandaj-ishtejt-10-30">'
+            f'<a href="https://telegra.ph/ZHRT-Dayardoo-Telegram-Botunda-ZH%D3%A9n%D3%A9k%D3%A9j-zhana-VIP-Koldonuuchular-11-16">'
             f"VIP колдонуучунун кандай артыкчылыктары бар?</a> 👈\n\n"
             f"Эгер VIP колдонуучуга өтүүнү кааласаңыз же суроолоруңуз болсо төмөндөнү баскычты басаңыз👇"
         ),
         reply_markup=kb.whatsapp_button_kg(telegram_id=telegram_id),
         parse_mode=ParseMode.HTML
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'settings_ru')
 async def setting_user_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForUserSettingsRU,
@@ -1096,12 +1318,18 @@ async def setting_user_ru(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.user_settings_ru
     )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'settings_kg')
 async def setting_user_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForUserSettingsKG,
@@ -1109,12 +1337,18 @@ async def setting_user_ru(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.user_settings_kg
     )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'change_language_kg')
 async def change_language_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForChangeLanguaageKG,
         caption="Сиз чындап тилди орус тилине алмаштырууну каалайсызбы?\n"
@@ -1122,12 +1356,18 @@ async def change_language_kg(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.to_user_account_kg
     )
     await state.set_state(st.ChangeLanguageKG.write_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ChangeLanguageKG.write_ru)
 async def change_language_kg_write_ru(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_telegram_id = message.from_user.id
     input_user = message.text
 
@@ -1138,26 +1378,34 @@ async def change_language_kg_write_ru(message: Message, state: FSMContext):
                 text="Сиздин тил орус тилине алмашылды.",
                 reply_markup=kb.to_user_account_ru
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Тилди алмаштырууда ката чыкты!",
                 reply_markup=kb.to_user_account_kg
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Сиз сөздү туура эмес жаздыңыз!",
             reply_markup=kb.to_user_account_kg
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 
 @router.callback_query(F.data == 'change_language_ru')
 async def change_language_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForChangeLanguaageRU,
         caption="Вы уверены, что хотите сменить язык на кыргызский?\n"
@@ -1165,12 +1413,18 @@ async def change_language_ru(callback_query: CallbackQuery, state: FSMContext):
         reply_markup=kb.to_user_account_kg
     )
     await state.set_state(st.ChangeLanguageRU.write_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ChangeLanguageRU.write_kg)
 async def change_language_ru_write_kg(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_telegram_id = message.from_user.id
     input_user = message.text
 
@@ -1181,26 +1435,34 @@ async def change_language_ru_write_kg(message: Message, state: FSMContext):
                 text="Ваш язык изменен на кыргызский.",
                 reply_markup=kb.to_user_account_kg
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Произошла ошибка при смене языка!",
                 reply_markup=kb.to_user_account_ru
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Вы неправильно написали слово!",
             reply_markup=kb.to_user_account_ru
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 
 @router.callback_query(F.data == 'change_phone_number_ru')
 async def prompt_change_phone_number_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Отправляем сообщение с просьбой ввести новый номер телефона
     sent_message = await callback_query.message.answer_photo(
@@ -1211,13 +1473,19 @@ async def prompt_change_phone_number_ru(callback_query: CallbackQuery, state: FS
 
     # Переходим в состояние ввода номера телефона
     await state.set_state(st.ChangePhoneNumberRU.enter_phone_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.message(st.ChangePhoneNumberRU.enter_phone_ru)
 async def change_phone_number(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     new_phone_number = message.text.strip()
 
     # Проверяем формат номера телефона
@@ -1225,7 +1493,8 @@ async def change_phone_number(message: Message, state: FSMContext):
         sent_message = await message.answer(
             text="Некорректный номер телефона. Пожалуйста, введите номер в формате +996XXXXXXXXX.",
             reply_markup=kb.to_user_account_ru)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         telegram_id = message.from_user.id
 
@@ -1235,20 +1504,27 @@ async def change_phone_number(message: Message, state: FSMContext):
             sent_message = await message.answer(
                 text="Ваш номер телефона успешно обновлен.",
                 reply_markup=kb.to_user_account_ru)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Не удалось обновить номер телефона. Попробуйте позже.",
                 reply_markup=kb.to_user_account_ru)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
     await state.clear()
 
 
 @router.callback_query(F.data == 'change_phone_number_kg')
 async def prompt_change_phone_number_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Отправляем сообщение с просьбой ввести новый номер телефона
     sent_message = await callback_query.message.answer_photo(
@@ -1259,13 +1535,19 @@ async def prompt_change_phone_number_kg(callback_query: CallbackQuery, state: FS
 
     # Переходим в состояние ввода номера телефона
     await state.set_state(st.ChangePhoneNumberKG.enter_phone_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.message(st.ChangePhoneNumberKG.enter_phone_kg)
 async def change_phone_number(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     new_phone_number = message.text.strip()
 
     # Проверяем формат номера телефона
@@ -1273,7 +1555,8 @@ async def change_phone_number(message: Message, state: FSMContext):
         sent_message = await message.answer(
             text="Жараксыз телефон номери. Номерди +996ХХХХХХХХ форматында киргизиңиз.",
             reply_markup=kb.to_user_account_kg)
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         telegram_id = message.from_user.id
 
@@ -1283,12 +1566,14 @@ async def change_phone_number(message: Message, state: FSMContext):
             sent_message = await message.answer(
                 text="Телефон номериңиз ийгиликтүү жаңыртылды.",
                 reply_markup=kb.to_user_account_kg)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Телефон номери жаңыртылган жок. Кийинчерээк кайра аракет кылыңыз.",
                 reply_markup=kb.to_user_account_kg)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
     await state.clear()
 
@@ -1296,8 +1581,13 @@ async def change_phone_number(message: Message, state: FSMContext):
 # Обработчик для кнопки "Текущий статус"
 @router.callback_query(F.data == 'current_status_ru')
 async def current_status_ru(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
     # Получаем текущий статус пользователя из базы данных
@@ -1320,13 +1610,19 @@ async def current_status_ru(callback_query: CallbackQuery):
         caption=status_message,
         reply_markup=kb.to_user_account_ru
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Обработчик для кнопки "Текущий статус"
 @router.callback_query(F.data == 'current_status_kg')
 async def current_status_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
     # Получаем текущий статус пользователя из базы данных
@@ -1349,47 +1645,71 @@ async def current_status_kg(callback_query: CallbackQuery):
         caption=status_message,
         reply_markup=kb.to_user_account_kg
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'helpdesk_kg')
 async def helpdesk_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForFAQKG,
         caption="Бот боюнча кандайдыр бир суроолор бар болсо төмөндөгү баскычты бас.",
         reply_markup=kb.whatsapp_button_without_text_kg
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'helpdesk_ru')
 async def helpdesk_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForFAQRU,
         caption="Если у вас есть вопросы по боту, нажмите кнопку ниже.",
         reply_markup=kb.whatsapp_button_without_text_ru
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Хендлер для кнопки "Изменить никнейм/ФИО"
 @router.callback_query(F.data == 'change_nickname_ru')
 async def change_nickname_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForChangeNicknameRU,
         caption="Введите ваш новый никнейм или ФИО, чтобы обновить.",
         reply_markup=kb.to_user_account_ru
     )
     await state.set_state(st.ChangeNicknameRU.enter_nickname_ru)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ChangeNicknameRU.enter_nickname_ru)
 async def change_nickname_ru_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_telegram_id = message.from_user.id
     new_name = message.text
     is_changed = await rq.update_user_name(telegram_id=user_telegram_id, new_name=new_name)
@@ -1399,13 +1719,15 @@ async def change_nickname_ru_finish(message: Message, state: FSMContext):
             text="Ваше ФИО было успешно изменено!",
             reply_markup=kb.to_user_account_ru
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Произошла ошибка при изменении ФИО!",
             reply_markup=kb.to_user_account_ru
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
     await state.clear()
 
@@ -1413,20 +1735,31 @@ async def change_nickname_ru_finish(message: Message, state: FSMContext):
 # Хендлер для кнопки "Изменить никнейм/ФИО"
 @router.callback_query(F.data == 'change_nickname_kg')
 async def change_nickname_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForChangeNicknameKG,
         caption="Жаңы ФИО жазыңыз.",
         reply_markup=kb.to_user_account_kg
     )
     await state.set_state(st.ChangeNicknameKG.enter_nickname_kg)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.ChangeNicknameKG.enter_nickname_kg)
 async def change_nickname_kg_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_telegram_id = message.from_user.id
     new_name = message.text
     is_changed = await rq.update_user_name(telegram_id=user_telegram_id, new_name=new_name)
@@ -1436,35 +1769,42 @@ async def change_nickname_kg_finish(message: Message, state: FSMContext):
             text="ФИО ийгиликтүү алмаштырылды!",
             reply_markup=kb.to_user_account_kg
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="ФИО алмаштырууда ката кетти!",
             reply_markup=kb.to_user_account_kg
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
     await state.clear()
 
 
 @router.callback_query(F.data == 'my_profile_ru')
 async def my_profile(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
     # Получаем данные пользователя из базы данных
-    user_data = await rq.get_user_profile_data(telegram_id)
+    user_profile = await rq.get_user_profile_data(telegram_id)
 
     # Формируем красивое сообщение с данными пользователя
     profile_message = (
         f"🌟 *Мой профиль* 🌟\n\n"
         f"🆔 *Telegram ID:* {telegram_id}\n"
-        f"👤 *ФИО:* {user_data['name']}\n"
-        f"📱 *Номер телефона:* {user_data['phone_number']}\n"
-        f"💎 *Рубины:* {user_data['rubies']}\n"
-        f"💼 *Статус подписки:* {'VIP' if user_data['subscription_status'] else 'Обычный'}\n"
-        f"🗓️ *Дата регистрации:* {user_data['created_at'].strftime('%d-%m-%Y')}\n"
+        f"👤 *ФИО:* {user_profile['name']}\n"
+        f"📱 *Номер телефона:* {user_profile['phone_number']}\n"
+        f"💎 *Рубины:* {user_profile['rubies']}\n"
+        f"💼 *Статус подписки:* {'VIP' if user_profile['subscription_status'] else 'Обычный'}\n"
+        f"🗓️ *Дата регистрации:* {user_profile['created_at'].strftime('%d-%m-%Y')}\n"
     )
 
     sent_message = await callback_query.message.answer(
@@ -1472,27 +1812,33 @@ async def my_profile(callback_query: CallbackQuery):
         reply_markup=kb.to_user_account_ru,
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'my_profile_kg')
 async def my_profile(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
     # Получаем данные пользователя из базы данных
-    user_data = await rq.get_user_profile_data(telegram_id)
+    user_profile = await rq.get_user_profile_data(telegram_id)
 
     # Формируем красивое сообщение с данными пользователя
     profile_message = (
         f"🌟 *Менин профилим* 🌟\n\n"
         f"🆔 *Telegram ID:* {telegram_id}\n"
-        f"👤 *ФИО:* {user_data['name']}\n"
-        f"📱 *Телефон номер:* {user_data['phone_number']}\n"
-        f"💎 *Рубин:* {user_data['rubies']}\n"
-        f"💼 *Статус:* {'VIP' if user_data['subscription_status'] else 'Обычный'}\n"
-        f"🗓️ *Катталган дата:* {user_data['created_at'].strftime('%d-%m-%Y')}\n"
+        f"👤 *ФИО:* {user_profile['name']}\n"
+        f"📱 *Телефон номер:* {user_profile['phone_number']}\n"
+        f"💎 *Рубин:* {user_profile['rubies']}\n"
+        f"💼 *Статус:* {'VIP' if user_profile['subscription_status'] else 'Обычный'}\n"
+        f"🗓️ *Катталган дата:* {user_profile['created_at'].strftime('%d-%m-%Y')}\n"
     )
 
     sent_message = await callback_query.message.answer(
@@ -1500,7 +1846,8 @@ async def my_profile(callback_query: CallbackQuery):
         reply_markup=kb.to_user_account_kg,
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Хендлер для показа первой страницы рейтинга
@@ -1510,8 +1857,13 @@ async def show_user_ranking(callback_query: CallbackQuery):
 
 # Функция для отображения страницы рейтинга
 async def display_ranking_page(callback_query: CallbackQuery, page: int):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     page_size = 50
     users = await rq.get_users_ranking(page, page_size)
@@ -1522,13 +1874,15 @@ async def display_ranking_page(callback_query: CallbackQuery, page: int):
             sent_message = await callback_query.message.answer(
                 text="Вы дошли до последней страницы.",
                 reply_markup=keyboard)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             keyboard = kb.rating_buttons_last_page_ru(page)
             sent_message = await callback_query.message.answer(
                 text="Вы дошли до последней страницы.",
                 reply_markup=keyboard)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         # Формируем текст для вывода рейтинга
         ranking_text = f"🌟 *РЕЙТИНГ ПОЛЬЗОВАТЕЛЕЙ* 🌟\n\nСтраница: {page}\n\n"
@@ -1543,7 +1897,8 @@ async def display_ranking_page(callback_query: CallbackQuery, page: int):
 
         # Отправляем или обновляем сообщение с рейтингом
         sent_message = await callback_query.message.answer(text=ranking_text, reply_markup=keyboard, parse_mode="Markdown")
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Хендлер для кнопок перехода по страницам
 @router.callback_query(lambda c: c.data and c.data.startswith("rating_page_"))
@@ -1577,8 +1932,13 @@ async def show_user_ranking_kg(callback_query: CallbackQuery):
 
 # Функция для отображения страницы рейтинга
 async def display_ranking_page_kg(callback_query: CallbackQuery, page: int):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     page_size = 50
     users = await rq.get_users_ranking(page, page_size)
@@ -1589,13 +1949,15 @@ async def display_ranking_page_kg(callback_query: CallbackQuery, page: int):
             sent_message = await callback_query.message.answer(
                 text="Cиз акыркы бетке келдиңиз.",
                 reply_markup=keyboard)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             keyboard = kb.rating_buttons_last_page_kg(page)
             sent_message = await callback_query.message.answer(
                 text="Cиз акыркы бетке келдиңиз.",
                 reply_markup=keyboard)
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         # Формируем текст для вывода рейтинга
         ranking_text = f"🌟 *КОЛДОНУУЧУЛАР РЕЙТИНГИ* 🌟\n\nБет: {page}\n\n"
@@ -1610,7 +1972,8 @@ async def display_ranking_page_kg(callback_query: CallbackQuery, page: int):
 
         # Отправляем или обновляем сообщение с рейтингом
         sent_message = await callback_query.message.answer(text=ranking_text, reply_markup=keyboard, parse_mode="Markdown")
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 # Хендлер для кнопок перехода по страницам
 @router.callback_query(lambda c: c.data and c.data.startswith("kg_rating_page_"))
@@ -1642,68 +2005,140 @@ async def find_user_in_ranking_kg(callback_query: CallbackQuery):
 #################################################################################
 @router.callback_query(F.data == 'take_test_ru')
 async def take_test_ru(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForTakeTheTestRU,
         caption="Выберите категорию, по которой вы хотите пройти тест.",
         reply_markup=kb.select_subject_ru
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 # Passing the analogy test in Russian
 @router.callback_query(F.data == 'take_analogy_ru')
 async def start_analogy_test(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
-    # Получаем индекс последнего сданного вопроса
-    last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=3)
+    count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=1, subject_id2=3)
+    print(count_passed_questions)
 
-    # Получаем следующий вопрос, основываясь на последнем сданном
-    next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=3)
+    if count_passed_questions > 5:
+        is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
-    if next_question:
-        # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
-        question_text = f"*Пара:* {next_question['content']}\n"
+        if is_vip:
+            # Получаем индекс последнего сданного вопроса
+            last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=3)
 
-        # Генерируем клавиатуру с вариантами ответов
-        keyboard = kb.generate_answer_keyboard_ru(
-            question_id=next_question['question_id'],
-            option_a=next_question['option_a'],
-            option_b=next_question['option_b'],
-            option_v=next_question['option_v'],
-            option_g=next_question['option_g']
-        )
+            # Получаем следующий вопрос, основываясь на последнем сданном
+            next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=3)
 
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeAnalogyQuestionRU,
-            caption=question_text,
-            reply_markup=keyboard, # Отправляем сообщение с клавиатурой
-            parse_mode=ParseMode.MARKDOWN
-        )
+            if next_question:
+                # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+                question_text = f"*Пара:* {next_question['content']}\n"
+
+                # Генерируем клавиатуру с вариантами ответов
+                keyboard = kb.generate_answer_keyboard_ru(
+                    question_id=next_question['question_id'],
+                    option_a=next_question['option_a'],
+                    option_b=next_question['option_b'],
+                    option_v=next_question['option_v'],
+                    option_g=next_question['option_g']
+                )
+
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeAnalogyQuestionRU,
+                    caption=question_text,
+                    reply_markup=keyboard, # Отправляем сообщение с клавиатурой
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                # Если нет следующего вопроса, сообщаем пользователю
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeAnalogyQuestionRU,
+                    caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
+                            "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
+                            "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
+                    reply_markup=kb.take_the_test_again_analogy_ru
+                )
+
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionKG,
+                caption="Вы достигли лимита 50 вопросов. Чтобы получить доступ к больше чем 4000 вопросам, вы должны "
+                        "получить статус VIP. Для этого в личном кабинете выберите кнопку VIP и свяжитесь с админом.",
+                reply_markup=kb.to_user_account_ru
+            )
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
-        # Если нет следующего вопроса, сообщаем пользователю
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeAnalogyQuestionRU,
-            caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
-                    "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
-                    "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
-            reply_markup=kb.take_the_test_again_analogy_ru
-        )
+        # Получаем индекс последнего сданного вопроса
+        last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=3)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Получаем следующий вопрос, основываясь на последнем сданном
+        next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=3)
+
+        if next_question:
+            # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+            question_text = f"*Пара:* {next_question['content']}\n"
+
+            # Генерируем клавиатуру с вариантами ответов
+            keyboard = kb.generate_answer_keyboard_ru(
+                question_id=next_question['question_id'],
+                option_a=next_question['option_a'],
+                option_b=next_question['option_b'],
+                option_v=next_question['option_v'],
+                option_g=next_question['option_g']
+            )
+
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionRU,
+                caption=question_text,
+                reply_markup=keyboard,  # Отправляем сообщение с клавиатурой
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Если нет следующего вопроса, сообщаем пользователю
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionRU,
+                caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
+                        "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
+                        "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
+                reply_markup=kb.take_the_test_again_analogy_ru
+            )
+
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
+
 
 
 @router.callback_query(lambda c: c.data.startswith("question_"))
 async def check_the_correctness(callback_query: CallbackQuery):
     # Добавление ID сообщения пользователя в список
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
 
     # Удаление предыдущих сообщений
-    await delete_previous_messages(callback_query.message)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Извлекаем данные из callback_data, например, 'question_123_A'
     callback_data = callback_query.data
@@ -1780,7 +2215,8 @@ async def check_the_correctness(callback_query: CallbackQuery):
                 reply_markup=kb.next_analogy_question_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'next_analogy_question')
@@ -1791,58 +2227,124 @@ async def next_analogy_question(callback_query: CallbackQuery):
 
 @router.callback_query(F.data == 'take_grammar_ru')
 async def start_grammar_test(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
-    # Получаем индекс последнего сданного вопроса
-    last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=1)
+    count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=1, subject_id2=3)
+    print(count_passed_questions)
+    if count_passed_questions > 5:
+        is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
-    # Получаем следующий вопрос, основываясь на последнем сданном
-    next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=1)
+        if is_vip:
+            # Получаем индекс последнего сданного вопроса
+            last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=1)
 
-    if next_question:
-        # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
-        question_text = (f"*Вопрос:* {next_question['content']}\n\n"
-                         f"_А) {next_question['option_a']}_\n"
-                         f"_Б) {next_question['option_b']}_\n"
-                         f"_В) {next_question['option_v']}_\n"
-                         f"_Г) {next_question['option_g']}_\n")
+            # Получаем следующий вопрос, основываясь на последнем сданном
+            next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=1)
 
-        # Генерируем клавиатуру с вариантами ответов
-        keyboard = kb.generate_answer_keyboard_ru_grammar(
-            question_id=next_question['question_id'],
-            option_a="А",
-            option_b="Б",
-            option_v="В",
-            option_g="Г"
-        )
+            if next_question:
+                # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+                question_text = (f"*Вопрос:* {next_question['content']}\n\n"
+                                 f"_А) {next_question['option_a']}_\n"
+                                 f"_Б) {next_question['option_b']}_\n"
+                                 f"_В) {next_question['option_v']}_\n"
+                                 f"_Г) {next_question['option_g']}_\n")
 
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeGrammarQuestionRU,
-            caption=question_text,
-            reply_markup=keyboard, # Отправляем сообщение с клавиатурой
-            parse_mode=ParseMode.MARKDOWN
-        )
+                # Генерируем клавиатуру с вариантами ответов
+                keyboard = kb.generate_answer_keyboard_ru_grammar(
+                    question_id=next_question['question_id'],
+                    option_a="А",
+                    option_b="Б",
+                    option_v="В",
+                    option_g="Г"
+                )
+
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeGrammarQuestionRU,
+                    caption=question_text,
+                    reply_markup=keyboard, # Отправляем сообщение с клавиатурой
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                # Если нет следующего вопроса, сообщаем пользователю
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeGrammarQuestionRU,
+                    caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
+                            "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
+                            "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
+                    reply_markup=kb.take_the_test_again_grammar_ru
+                )
+
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionKG,
+                caption="Вы достигли лимита 50 вопросов. Чтобы получить доступ к больше чем 4000 вопросам, вы должны "
+                        "получить статус VIP. Для этого в личном кабинете выберите кнопку VIP и свяжитесь с админом.",
+                reply_markup=kb.to_user_account_ru
+            )
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
-        # Если нет следующего вопроса, сообщаем пользователю
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeGrammarQuestionRU,
-            caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
-                    "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
-                    "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
-            reply_markup=kb.take_the_test_again_grammar_ru
-        )
+        # Получаем индекс последнего сданного вопроса
+        last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=1)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Получаем следующий вопрос, основываясь на последнем сданном
+        next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=1)
+
+        if next_question:
+            # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+            question_text = (f"*Вопрос:* {next_question['content']}\n\n"
+                             f"_А) {next_question['option_a']}_\n"
+                             f"_Б) {next_question['option_b']}_\n"
+                             f"_В) {next_question['option_v']}_\n"
+                             f"_Г) {next_question['option_g']}_\n")
+
+            # Генерируем клавиатуру с вариантами ответов
+            keyboard = kb.generate_answer_keyboard_ru_grammar(
+                question_id=next_question['question_id'],
+                option_a="А",
+                option_b="Б",
+                option_v="В",
+                option_g="Г"
+            )
+
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeGrammarQuestionRU,
+                caption=question_text,
+                reply_markup=keyboard,  # Отправляем сообщение с клавиатурой
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Если нет следующего вопроса, сообщаем пользователю
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeGrammarQuestionRU,
+                caption="Вы прошли все тесты! Вы можете вернуться позже или начать тест заново. Обратите внимание, "
+                        "что при повторном прохождении все данные о ваших пройденных вопросах будут сброшены, "
+                        "и вам нужно будет пройти тест заново. Однако количество рубинов останется неизменным.",
+                reply_markup=kb.take_the_test_again_grammar_ru
+            )
+
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(lambda c: c.data.startswith("ru_grammar_question_"))
 async def check_the_correctness(callback_query: CallbackQuery):
     # Добавление ID сообщения пользователя в список
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
 
-    # Удаление предыдущих сообщений
-    await delete_previous_messages(callback_query.message)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Извлекаем данные из callback_data, например, 'question_123_A'
     callback_data = callback_query.data
@@ -1919,7 +2421,8 @@ async def check_the_correctness(callback_query: CallbackQuery):
                 reply_markup=kb.next_analogy_grammar_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'next_grammar_question')
 async def next_grammar_question(callback_query: CallbackQuery):
@@ -1933,67 +2436,137 @@ async def next_grammar_question(callback_query: CallbackQuery):
 
 @router.callback_query(F.data == 'take_test_kg')
 async def take_test_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForTakeTheTestKG,
         caption="Кайсы категориядан тест өтөсүз?",
         reply_markup=kb.select_subject_kg
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 # Passing the analogy test in Kyrgyz
 @router.callback_query(F.data == 'take_analogy_kg')
 async def start_analogy_test_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
-    # Получаем индекс последнего сданного вопроса
-    last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=4)
+    count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=2, subject_id2=4)
+    print(count_passed_questions)
+    if count_passed_questions > 5:
+        is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
-    # Получаем следующий вопрос, основываясь на последнем сданном
-    next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=4)
+        if is_vip:
+            # Получаем индекс последнего сданного вопроса
+            last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=4)
 
-    if next_question:
-        # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
-        question_text = f"*Жуп:* {next_question['content']}\n"
+            # Получаем следующий вопрос, основываясь на последнем сданном
+            next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=4)
 
-        # Генерируем клавиатуру с вариантами ответов
-        keyboard = kb.generate_answer_keyboard_kg_analogy(
-            question_id=next_question['question_id'],
-            option_a=next_question['option_a'],
-            option_b=next_question['option_b'],
-            option_v=next_question['option_v'],
-            option_g=next_question['option_g']
-        )
+            if next_question:
+                # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+                question_text = f"*Жуп:* {next_question['content']}\n"
 
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeAnalogyQuestionKG,
-            caption=question_text,
-            reply_markup=keyboard, # Отправляем сообщение с клавиатурой
-            parse_mode=ParseMode.MARKDOWN
-        )
+                # Генерируем клавиатуру с вариантами ответов
+                keyboard = kb.generate_answer_keyboard_kg_analogy(
+                    question_id=next_question['question_id'],
+                    option_a=next_question['option_a'],
+                    option_b=next_question['option_b'],
+                    option_v=next_question['option_v'],
+                    option_g=next_question['option_g']
+                )
+
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeAnalogyQuestionKG,
+                    caption=question_text,
+                    reply_markup=keyboard, # Отправляем сообщение с клавиатурой
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                # Если нет следующего вопроса, сообщаем пользователю
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeAnalogyQuestionKG,
+                    caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
+                            "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
+                            "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
+                    reply_markup=kb.take_the_test_again_analogy_kg
+                )
+
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionKG,
+                caption="Сиз 50 суроо тапшырып бүттүңүз. 4000+ суроону тапшырууга мүмкүнчүлүк алуу үчүн VIP колдонуучу "
+                        "статусун алыңыз. Алуу үчүн өздүк бөлмөгө кирип, VIP баскычын басып, администрацияга жазыңыз",
+                reply_markup=kb.to_user_account_kg
+            )
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
-        # Если нет следующего вопроса, сообщаем пользователю
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeAnalogyQuestionKG,
-            caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
-                    "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
-                    "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
-            reply_markup=kb.take_the_test_again_analogy_kg
-        )
+        # Получаем индекс последнего сданного вопроса
+        last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=4)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Получаем следующий вопрос, основываясь на последнем сданном
+        next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=4)
+
+        if next_question:
+            # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+            question_text = f"*Жуп:* {next_question['content']}\n"
+
+            # Генерируем клавиатуру с вариантами ответов
+            keyboard = kb.generate_answer_keyboard_kg_analogy(
+                question_id=next_question['question_id'],
+                option_a=next_question['option_a'],
+                option_b=next_question['option_b'],
+                option_v=next_question['option_v'],
+                option_g=next_question['option_g']
+            )
+
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionKG,
+                caption=question_text,
+                reply_markup=keyboard,  # Отправляем сообщение с клавиатурой
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Если нет следующего вопроса, сообщаем пользователю
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionKG,
+                caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
+                        "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
+                        "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
+                reply_markup=kb.take_the_test_again_analogy_kg
+            )
+
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data.startswith("kg_analogy_question_"))
 async def check_the_correctness(callback_query: CallbackQuery):
     # Добавление ID сообщения пользователя в список
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
 
     # Удаление предыдущих сообщений
-    await delete_previous_messages(callback_query.message)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Извлекаем данные из callback_data, например, 'question_123_A'
     callback_data = callback_query.data
@@ -2070,7 +2643,8 @@ async def check_the_correctness(callback_query: CallbackQuery):
                 reply_markup=kb.next_analogy_question_kg_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'next_analogy_kg_question')
 async def next_analogy_kg_question(callback_query: CallbackQuery):
@@ -2079,59 +2653,126 @@ async def next_analogy_kg_question(callback_query: CallbackQuery):
 
 @router.callback_query(F.data == 'take_grammar_kg')
 async def start_grammar_test_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
-    # Получаем индекс последнего сданного вопроса
-    last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=2)
+    count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=2, subject_id2=4)
+    print(count_passed_questions)
+    if count_passed_questions > 5:
+        is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
-    # Получаем следующий вопрос, основываясь на последнем сданном
-    next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=2)
+        if is_vip:
+            # Получаем индекс последнего сданного вопроса
+            last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=2)
 
-    if next_question:
-        # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
-        question_text = (f"*Суроо:* {next_question['content']}\n\n"
-                         f"_А) {next_question['option_a']}_\n"
-                         f"_Б) {next_question['option_b']}_\n"
-                         f"_В) {next_question['option_v']}_\n"
-                         f"_Г) {next_question['option_g']}_\n")
+            # Получаем следующий вопрос, основываясь на последнем сданном
+            next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=2)
 
-        # Генерируем клавиатуру с вариантами ответов
-        keyboard = kb.generate_answer_keyboard_kg_grammar(
-            question_id=next_question['question_id'],
-            option_a="А",
-            option_b="Б",
-            option_v="В",
-            option_g="Г"
-        )
+            if next_question:
+                # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+                question_text = (f"*Суроо:* {next_question['content']}\n\n"
+                                 f"_А) {next_question['option_a']}_\n"
+                                 f"_Б) {next_question['option_b']}_\n"
+                                 f"_В) {next_question['option_v']}_\n"
+                                 f"_Г) {next_question['option_g']}_\n")
 
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeGrammarQuestionKG,
-            caption=question_text,
-            reply_markup=keyboard, # Отправляем сообщение с клавиатурой
-            parse_mode=ParseMode.MARKDOWN
-        )
+                # Генерируем клавиатуру с вариантами ответов
+                keyboard = kb.generate_answer_keyboard_kg_grammar(
+                    question_id=next_question['question_id'],
+                    option_a="А",
+                    option_b="Б",
+                    option_v="В",
+                    option_g="Г"
+                )
+
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeGrammarQuestionKG,
+                    caption=question_text,
+                    reply_markup=keyboard, # Отправляем сообщение с клавиатурой
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                # Если нет следующего вопроса, сообщаем пользователю
+                sent_message = await callback_query.message.answer_photo(
+                    photo=utils.PictureForTakeGrammarQuestionKG,
+                    caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
+                            "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
+                            "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
+                    reply_markup=kb.take_the_test_again_grammar_kg
+                )
+
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
+        else:
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeAnalogyQuestionKG,
+                caption="Сиз 50 суроо тапшырып бүттүңүз. 4000+ суроону тапшырууга мүмкүнчүлүк алуу үчүн VIP колдонуучу "
+                        "статусун алыңыз. Алуу үчүн өздүк бөлмөгө кирип, VIP баскычын басып, администрацияга жазыңыз",
+                reply_markup=kb.to_user_account_kg
+            )
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
-        # Если нет следующего вопроса, сообщаем пользователю
-        sent_message = await callback_query.message.answer_photo(
-            photo=utils.PictureForTakeGrammarQuestionKG,
-            caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
-                    "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
-                    "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
-            reply_markup=kb.take_the_test_again_grammar_kg
-        )
+        # Получаем индекс последнего сданного вопроса
+        last_question_index = await rq.get_last_answered_question_index(telegram_id=telegram_id, subject_id=2)
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Получаем следующий вопрос, основываясь на последнем сданном
+        next_question = await rq.get_next_question(last_answered_question_id=last_question_index, subject_id=2)
+
+        if next_question:
+            # Если следующий вопрос существует, создаем текст вопроса и вариант ответов
+            question_text = (f"*Суроо:* {next_question['content']}\n\n"
+                             f"_А) {next_question['option_a']}_\n"
+                             f"_Б) {next_question['option_b']}_\n"
+                             f"_В) {next_question['option_v']}_\n"
+                             f"_Г) {next_question['option_g']}_\n")
+
+            # Генерируем клавиатуру с вариантами ответов
+            keyboard = kb.generate_answer_keyboard_kg_grammar(
+                question_id=next_question['question_id'],
+                option_a="А",
+                option_b="Б",
+                option_v="В",
+                option_g="Г"
+            )
+
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeGrammarQuestionKG,
+                caption=question_text,
+                reply_markup=keyboard,  # Отправляем сообщение с клавиатурой
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Если нет следующего вопроса, сообщаем пользователю
+            sent_message = await callback_query.message.answer_photo(
+                photo=utils.PictureForTakeGrammarQuestionKG,
+                caption="Сиз бардык тесттерди өттүңүз! Кийинчерээк кайталап кирсеңиз болот же тестти кайра баштай аласыз. "
+                        "Эскертүү: тестти кайра өткөн учурда, бардык өткөн суроолор боюнча маалыматтар жоголот жана сизге "
+                        "тестти кайрадан өтүү керек болот. Бирок рубиндердин саны өзгөрбөйт.",
+                reply_markup=kb.take_the_test_again_grammar_kg
+            )
+
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
+
 
 
 @router.callback_query(lambda c: c.data.startswith("kg_grammar_question_"))
 async def check_the_correctness(callback_query: CallbackQuery):
     # Добавление ID сообщения пользователя в список
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
 
-    # Удаление предыдущих сообщений
-    await delete_previous_messages(callback_query.message)
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     # Извлекаем данные из callback_data, например, 'question_123_A'
     callback_data = callback_query.data
@@ -2208,7 +2849,8 @@ async def check_the_correctness(callback_query: CallbackQuery):
                 reply_markup=kb.next_grammar_kg_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'next_grammar_question_kg')
 async def next_grammar_question_kg(callback_query: CallbackQuery):
@@ -2217,8 +2859,13 @@ async def next_grammar_question_kg(callback_query: CallbackQuery):
 # Take the russian analogy test again
 @router.callback_query(F.data == 'take_the_test_again_analogy_ru')
 async def take_the_test_analogy_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer(
         text="Если вы действительно хотите сбросить прогресс и начать тест заново, "
              "введите текущее время в формате чч:мм, например, 12:34.",
@@ -2226,12 +2873,18 @@ async def take_the_test_analogy_ru(callback_query: CallbackQuery, state: FSMCont
     )
 
     await state.set_state(st.TakeTheRussianAnalogyTestAgain.enter_time)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.TakeTheRussianAnalogyTestAgain.enter_time)
 async def take_the_test_analogy_ru_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_input = message.text
 
     current_time = datetime.now()
@@ -2248,27 +2901,35 @@ async def take_the_test_analogy_ru_finish(message: Message, state: FSMContext):
                 text="Ваши данные о прохождении теста сброшены. Вы можете начать тест заново.",
                 reply_markup=kb.to_user_account_ru
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Произошла ошибка при сбросе данных о прохождении теста. Пожалуйста, попробуйте снова.",
                 reply_markup=kb.to_user_account_ru
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Неверное время. Сброс теста отменен.",
             reply_markup=kb.to_user_account_ru
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 
 # Take the russian grammar test again
 @router.callback_query(F.data == 'take_the_test_again_grammar_ru')
 async def take_the_test_grammar_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer(
         text="Если вы действительно хотите сбросить прогресс и начать тест заново, "
              "введите текущее время в формате чч:мм, например, 12:34.",
@@ -2276,12 +2937,18 @@ async def take_the_test_grammar_ru(callback_query: CallbackQuery, state: FSMCont
     )
 
     await state.set_state(st.TakeTheRussianGrammarTestAgain.enter_time)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.TakeTheRussianGrammarTestAgain.enter_time)
 async def take_the_test_grammar_ru_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_input = message.text
 
     current_time = datetime.now()
@@ -2298,26 +2965,34 @@ async def take_the_test_grammar_ru_finish(message: Message, state: FSMContext):
                 text="Ваши данные о прохождении теста сброшены. Вы можете начать тест заново.",
                 reply_markup=kb.to_user_account_ru
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Произошла ошибка при сбросе данных о прохождении теста. Пожалуйста, попробуйте снова.",
                 reply_markup=kb.to_user_account_ru
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Неверное время. Сброс теста отменен.",
             reply_markup=kb.to_user_account_ru
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 # Take the kyrgyz analogy test again
 @router.callback_query(F.data == 'take_the_test_again_analogy_kg')
 async def take_the_test_analogy_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer(
         text="Эгерде сиз чын эле прогрессти өчүрүп, тестти кайра баштагыңыз келсе, "
              "анда учурдагы убакытты саат:мүнөт форматында жазыңыз, мисалы, 12:34.",
@@ -2325,12 +3000,18 @@ async def take_the_test_analogy_kg(callback_query: CallbackQuery, state: FSMCont
     )
 
     await state.set_state(st.TakeTheKyrgyzAnalogyTestAgain.enter_time)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.TakeTheKyrgyzAnalogyTestAgain.enter_time)
 async def take_the_test_analogy_kg_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_input = message.text
 
     current_time = datetime.now()
@@ -2347,27 +3028,35 @@ async def take_the_test_analogy_kg_finish(message: Message, state: FSMContext):
                 text="Сиздин өткөн тесттер тууралуу маалыматыңыз өчүрүлдү. Сиз тестти кайра баштасаңыз болот.",
                 reply_markup=kb.to_user_account_kg
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Сиздин өткөн тесттер тууралуу маалыматты өчүрүүдө ката кетти. Кайрадан аракет кылып көрүңүз.",
                 reply_markup=kb.to_user_account_kg
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Убакытты туура эмес жаздыңыз, өткөн тесттер тууралуу маалымат өчүрүлгөн жок.",
             reply_markup=kb.to_user_account_kg
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 
 # Take the kyrgyz grammar test again
 @router.callback_query(F.data == 'take_the_test_again_grammar_kg')
 async def take_the_test_grammar_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     sent_message = await callback_query.message.answer(
         text="Эгерде сиз чын эле прогрессти өчүрүп, тестти кайра баштагыңыз келсе, "
              "анда учурдагы убакытты саат:мүнөт форматында жазыңыз, мисалы, 12:34.",
@@ -2375,12 +3064,18 @@ async def take_the_test_grammar_kg(callback_query: CallbackQuery, state: FSMCont
     )
 
     await state.set_state(st.TakeTheKyrgyzGrammarTestAgain.enter_time)
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.message(st.TakeTheKyrgyzGrammarTestAgain.enter_time)
 async def take_the_test_grammar_kg_finish(message: Message, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(message.message_id)
-    await delete_previous_messages(message)
+    tuid = message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(message, tuid)
     user_input = message.text
 
     current_time = datetime.now()
@@ -2397,25 +3092,32 @@ async def take_the_test_grammar_kg_finish(message: Message, state: FSMContext):
                 text="Сиздин өткөн тесттер тууралуу маалыматыңыз өчүрүлдү. Сиз тестти кайра баштасаңыз болот.",
                 reply_markup=kb.to_user_account_kg
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await message.answer(
                 text="Сиздин өткөн тесттер тууралуу маалыматты өчүрүүдө ката кетти. Кайрадан аракет кылып көрүңүз.",
                 reply_markup=kb.to_user_account_kg
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await message.answer(
             text="Убакытты туура эмес жаздыңыз, өткөн тесттер тууралуу маалымат өчүрүлгөн жок.",
             reply_markup=kb.to_user_account_kg
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     await state.clear()
 
 @router.callback_query(lambda c: c.data.startswith("analysis_of_the_issue_"))
 async def analysis_of_the_issue(callback_query: CallbackQuery):
     # take_the_test_again_analogy_kg_3
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
 
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -2495,13 +3197,15 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                     response = await gpt.get_chatgpt_response(prompt_for_gpt)
                     explanation_text_for_user += "\n\n" + response
                     await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
-        await delete_previous_messages(callback_query.message)
+        # Удаляем предыдущие сообщения
+        await delete_previous_messages(callback_query.message, tuid)
         sent_message = await callback_query.message.answer(
             text=explanation_text_for_user,
             reply_markup=kb.go_to_question_result(question_id=question_id, question_type=question_type,
                                                   question_lenguage=question_language)
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
     else:
         explanation = await rq.get_explanation_by_question_id(question_id=question_id)
         if question_language == "kg":
@@ -2549,19 +3253,26 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                                     f"Правильный ответ: {question_data['correct_option']}"
                     explanation_text_for_user += question_text
                     explanation_text_for_user += "\n\n" + explanation
-        await delete_previous_messages(callback_query.message)
+        # Удаляем предыдущие сообщения
+        await delete_previous_messages(callback_query.message, tuid)
         sent_message = await callback_query.message.answer(
             text=explanation_text_for_user,
             reply_markup=kb.go_to_question_result(question_id=question_id, question_type=question_type,
                                                   question_lenguage=question_language)
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data.startswith("go_to_question_result_"))
 async def go_to_question_result(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
     # go_to_question_result_analogy_kg_12
     callback_data = callback_query.data
@@ -2593,7 +3304,8 @@ async def go_to_question_result(callback_query: CallbackQuery):
                 reply_markup=kb.next_analogy_question_kg_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         elif question_type == 'grammar':
             question_text = f"Суроо: {question_data['question']}\n" \
                             f"А) {question_data['option_a']}\n" \
@@ -2613,7 +3325,8 @@ async def go_to_question_result(callback_query: CallbackQuery):
                 reply_markup=kb.next_grammar_kg_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     elif question_language == 'ru':
         if question_type == 'analogy':
             question_text = f"Пара: {question_data['question']}\n" \
@@ -2634,7 +3347,8 @@ async def go_to_question_result(callback_query: CallbackQuery):
                 reply_markup=kb.next_analogy_question_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         elif question_type == 'grammar':
             question_text = f"Вопрос: {question_data['question']}\n" \
                             f"А) {question_data['option_a']}\n" \
@@ -2654,7 +3368,8 @@ async def go_to_question_result(callback_query: CallbackQuery):
                 reply_markup=kb.next_analogy_grammar_button(question_id=question_id),
                 parse_mode=ParseMode.MARKDOWN
             )
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 # We get the current time in the required time zone
 def get_current_time():
@@ -2673,8 +3388,13 @@ def calculate_time_difference(start: datetime, finish: datetime) -> float:
 
 @router.callback_query(F.data == 'duel_kg')
 async def duel_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForDuel,
@@ -2683,13 +3403,19 @@ async def duel_kg(callback_query: CallbackQuery):
         parse_mode=ParseMode.HTML
     )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'duel_with_random_kg')
 async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
     has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
@@ -2711,7 +3437,8 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
                     reply_markup=kb.to_user_account_kg,
                         parse_mode=ParseMode.MARKDOWN
                 )
-                sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                # Добавляем сообщение бота
+                user_data['bot_messages'].append(sent_message.message_id)
         else:
             duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
             if duel_id:
@@ -2723,7 +3450,8 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
                                 "Башынан кирип көрүңүз.",
                         reply_markup=kb.to_user_account_kg
                     )
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
                 else:
                     await state.update_data(user_type="opponent", duel_id=duel_id)
                     # Проверка и преобразование в list[int] при необходимости
@@ -2744,7 +3472,8 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
                         reply_markup=kb.to_user_account_kg,
                         parse_mode=ParseMode.MARKDOWN
                     )
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForDuel,
@@ -2752,9 +3481,12 @@ async def duel_with_random_kg(callback_query: CallbackQuery, state: FSMContext):
                     "Жок дегенде 10 рубин болуу керек.",
             reply_markup=kb.to_user_account_kg
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 async def duel_first_question_kg(callback_query, question_ids: list[int], state: FSMContext):
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
     question_id = question_ids[0]
     start_time = get_current_time()
     question_data = await rq.get_question_and_options(question_id=question_id)
@@ -2772,13 +3504,19 @@ async def duel_first_question_kg(callback_query, question_ids: list[int], state:
         reply_markup=kb.duel_question_keyboard_kg(question_id=question_id, numerator=1),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_1_"))
 async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_kg_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -2822,13 +3560,19 @@ async def duel_second_question_kg(callback_query: CallbackQuery, state: FSMConte
         reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=2),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_2_"))
 async def duel_third_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_kg_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -2872,12 +3616,18 @@ async def duel_third_question_kg(callback_query: CallbackQuery, state: FSMContex
         reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=3),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_3_"))
 async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_kg_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -2923,13 +3673,19 @@ async def duel_fourth_question_kg(callback_query: CallbackQuery, state: FSMConte
         reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=4),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_4_"))
 async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_kg_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -2974,14 +3730,20 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
         reply_markup=kb.duel_question_keyboard_kg(question_id=next_question_id, numerator=5),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_kg_5_"))
 async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_kg_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -3037,7 +3799,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                 parse_mode=ParseMode.MARKDOWN
             )
             await state.clear()
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await callback_query.message.answer_photo(
                 photo=utils.PictureForDuel,
@@ -3046,7 +3809,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                 parse_mode=ParseMode.MARKDOWN
             )
             await state.clear()
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     elif user_type == "opponent":
         duel_id = data['duel_id']
         creator_data = await rq.get_creator_score_time_and_telegram(duel_id)
@@ -3072,7 +3836,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
                 else:
                     sent_message = await callback_query.message.answer_photo(
                         photo=utils.PictureForDuel,
@@ -3081,7 +3846,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
             elif creator_score < score:
                 await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
                 await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
@@ -3101,7 +3867,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
                 else:
                     sent_message = await callback_query.message.answer_photo(
                         photo=utils.PictureForDuel,
@@ -3110,7 +3877,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
             elif creator_score == score:
                 if creator_time < time_difference:
                     await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
@@ -3131,7 +3899,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                     else:
                         sent_message = await callback_query.message.answer_photo(
                             photo=utils.PictureForDuel,
@@ -3140,7 +3909,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                 elif creator_time > time_difference:
                     await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
                     await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
@@ -3160,7 +3930,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                     else:
                         sent_message = await callback_query.message.answer_photo(
                             photo=utils.PictureForDuel,
@@ -3169,7 +3940,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                 elif creator_time == time_difference:
                     await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
                     await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
@@ -3189,7 +3961,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                     else:
                         sent_message = await callback_query.message.answer_photo(
                             photo=utils.PictureForDuel,
@@ -3198,7 +3971,8 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
 
         else:
             sent_message = await callback_query.message.answer_photo(
@@ -3208,12 +3982,18 @@ async def duel_fifth_question_kg(callback_query: CallbackQuery, state: FSMContex
                 parse_mode=ParseMode.MARKDOWN
             )
             await state.clear()
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'duel_results_kg')
 async def duel_results_kg(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     telegram_id = callback_query.message.chat.id
 
@@ -3260,8 +4040,13 @@ async def duel_results_kg(callback_query: CallbackQuery):
 
 @router.callback_query(F.data == 'duel_ru')
 async def duel_ru(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     sent_message = await callback_query.message.answer_photo(
         photo=utils.PictureForDuel,
@@ -3270,13 +4055,19 @@ async def duel_ru(callback_query: CallbackQuery):
         parse_mode=ParseMode.HTML
     )
 
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(F.data == 'duel_with_random_ru')
 async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     telegram_id = callback_query.from_user.id
 
     has_rubies = await rq.has_minimum_rubies(telegram_id=telegram_id)
@@ -3298,7 +4089,8 @@ async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
                     reply_markup=kb.to_user_account_ru,
                         parse_mode=ParseMode.MARKDOWN
                 )
-                sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                # Добавляем сообщение бота
+                user_data['bot_messages'].append(sent_message.message_id)
         else:
             duel_id = await rq.update_opponent_in_oldest_duel(telegram_id=telegram_id)
             if duel_id:
@@ -3310,7 +4102,8 @@ async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
                                 "Попробуйте войти с самого начала.",
                         reply_markup=kb.to_user_account_ru
                     )
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
                 else:
                     await state.update_data(user_type="opponent", duel_id=duel_id)
                     # Проверка и преобразование в list[int] при необходимости
@@ -3331,7 +4124,8 @@ async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
                         reply_markup=kb.to_user_account_ru,
                         parse_mode=ParseMode.MARKDOWN
                     )
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
     else:
         sent_message = await callback_query.message.answer_photo(
             photo=utils.PictureForDuel,
@@ -3339,9 +4133,12 @@ async def duel_with_random_ru(callback_query: CallbackQuery, state: FSMContext):
                     "Должно быть не менее 10 рубинов.",
             reply_markup=kb.to_user_account_ru
         )
-        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+        # Добавляем сообщение бота
+        user_data['bot_messages'].append(sent_message.message_id)
 
 async def duel_first_question_ru(callback_query, question_ids: list[int], state: FSMContext):
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
     question_id = question_ids[0]
     start_time = get_current_time()
     question_data = await rq.get_question_and_options(question_id=question_id)
@@ -3359,13 +4156,19 @@ async def duel_first_question_ru(callback_query, question_ids: list[int], state:
         reply_markup=kb.duel_question_keyboard_ru(question_id=question_id, numerator=1),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_1_"))
 async def duel_second_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_ru_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -3409,12 +4212,18 @@ async def duel_second_question_ru(callback_query: CallbackQuery, state: FSMConte
         reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=2),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_2_"))
 async def duel_third_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_ru_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -3458,13 +4267,19 @@ async def duel_third_question_ru(callback_query: CallbackQuery, state: FSMContex
         reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=3),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_3_"))
 async def duel_fourth_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_ru_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -3510,13 +4325,19 @@ async def duel_fourth_question_ru(callback_query: CallbackQuery, state: FSMConte
         reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=4),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_4_"))
 async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_ru_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -3561,12 +4382,18 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
         reply_markup=kb.duel_question_keyboard_ru(question_id=next_question_id, numerator=5),
         parse_mode=ParseMode.MARKDOWN
     )
-    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+    # Добавляем сообщение бота
+    user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(lambda c: c.data and c.data.startswith("duel_question_ru_5_"))
 async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContext):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
     # duel_question_ru_1_12_a
     callback_data = callback_query.data
     parts = callback_data.split('_')
@@ -3622,7 +4449,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                 parse_mode=ParseMode.MARKDOWN
             )
             await state.clear()
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
         else:
             sent_message = await callback_query.message.answer_photo(
                 photo=utils.PictureForDuel,
@@ -3631,7 +4459,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                 parse_mode=ParseMode.MARKDOWN
             )
             await state.clear()
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
     elif user_type == "opponent":
         duel_id = data['duel_id']
         creator_data = await rq.get_creator_score_time_and_telegram(duel_id)
@@ -3657,7 +4486,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
                 else:
                     sent_message = await callback_query.message.answer_photo(
                         photo=utils.PictureForDuel,
@@ -3666,7 +4496,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
             elif creator_score < score:
                 await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
                 await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
@@ -3686,7 +4517,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
                 else:
                     sent_message = await callback_query.message.answer_photo(
                         photo=utils.PictureForDuel,
@@ -3695,7 +4527,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                         parse_mode=ParseMode.MARKDOWN
                     )
                     await state.clear()
-                    sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                    # Добавляем сообщение бота
+                    user_data['bot_messages'].append(sent_message.message_id)
             elif creator_score == score:
                 if creator_time < time_difference:
                     await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
@@ -3716,7 +4549,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                     else:
                         sent_message = await callback_query.message.answer_photo(
                             photo=utils.PictureForDuel,
@@ -3725,7 +4559,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                 elif creator_time > time_difference:
                     await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
                     await rq.update_rubies_minus(telegram_id=creator_telegram_id, rubies_to_add=10)
@@ -3745,7 +4580,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                     else:
                         sent_message = await callback_query.message.answer_photo(
                             photo=utils.PictureForDuel,
@@ -3754,7 +4590,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                 elif creator_time == time_difference:
                     await rq.update_rubies(telegram_id=telegram_id, rubies_to_add=30)
                     await rq.update_rubies(telegram_id=creator_telegram_id, rubies_to_add=30)
@@ -3774,7 +4611,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
                     else:
                         sent_message = await callback_query.message.answer_photo(
                             photo=utils.PictureForDuel,
@@ -3783,7 +4621,8 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                             parse_mode=ParseMode.MARKDOWN
                         )
                         await state.clear()
-                        sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+                        # Добавляем сообщение бота
+                        user_data['bot_messages'].append(sent_message.message_id)
 
         else:
             sent_message = await callback_query.message.answer_photo(
@@ -3793,12 +4632,18 @@ async def duel_fifth_question_ru(callback_query: CallbackQuery, state: FSMContex
                 parse_mode=ParseMode.MARKDOWN
             )
             await state.clear()
-            sent_message_add_screen_ids['bot_messages'].append(sent_message.message_id)
+            # Добавляем сообщение бота
+            user_data['bot_messages'].append(sent_message.message_id)
 
 @router.callback_query(F.data == 'duel_results_ru')
 async def duel_results_ru(callback_query: CallbackQuery):
-    sent_message_add_screen_ids['user_messages'].append(callback_query.message.message_id)
-    await delete_previous_messages(callback_query.message)
+    tuid = callback_query.message.chat.id
+    user_data = sent_message_add_screen_ids[tuid]
+    # Добавляем сообщение пользователя
+    user_data['user_messages'].append(callback_query.message.message_id)
+
+    # Удаляем предыдущие сообщения
+    await delete_previous_messages(callback_query.message, tuid)
 
     telegram_id = callback_query.message.chat.id
 
