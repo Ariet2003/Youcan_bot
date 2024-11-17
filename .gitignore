@@ -3,3 +3,5 @@
 # Ignore environment files
 .env
 *.sqlite3
+!README.md
+!requirements.txt
