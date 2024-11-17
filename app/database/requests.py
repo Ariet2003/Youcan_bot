@@ -1495,3 +1495,15 @@ async def is_vip_user(telegram_id: str) -> bool:
 
             # Возвращаем True, если пользователь VIP, иначе False
             return subscription_status is True
+
+# Get the number of rubies for a user
+async def get_user_rubies(telegram_id: str) -> int:
+    async with async_session() as session:
+        async with session.begin():
+            # Запрос для получения количества рубинов пользователя
+            result = await session.execute(
+                select(User.rubies)
+                .where(User.telegram_id == telegram_id)
+            )
+            rubies = result.scalar()
+            return rubies or 0  # Если рубины отсутствуют, вернуть 0

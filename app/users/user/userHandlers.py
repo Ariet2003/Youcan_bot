@@ -114,18 +114,21 @@ async def user_account(message: Message, state: FSMContext):
     user_tg_id = str(message.chat.id)
     language = await rq.get_user_language(user_tg_id)
     name = await rq.get_user_name(user_tg_id)
+    rubies = await rq.get_user_rubies(telegram_id=user_tg_id)
 
     if language == 'ru':
         sent_message = await message.answer_photo(
             photo=utils.pictureOfUsersPersonalAccountRU,
-            caption=f'Привет, {name}'
+            caption=f'Привет, {name}\n'
+                    f'Рубины: {rubies} 💎'
                     f'\n<a href="https://telegra.ph/lpshchzk-10-30">Как бот работает?</a> 👈',
         reply_markup=kb.profile_button_ru,
         parse_mode=ParseMode.HTML)
     else:
         sent_message = await message.answer_photo(
             photo=utils.pictureOfUsersPersonalAccountRU,
-            caption=f'Салам, {name}'
+            caption=f'Салам, {name}\n'
+                    f'Рубин: {rubies} 💎'
                     f'\n<a href="https://telegra.ph/Bizdin-ORTga-dayardanuu-%D2%AFch%D2%AFn-Telegram-bot-kandaj-ishtejt-10-30">Бот кандай иштейт?</a> 👈',
             reply_markup=kb.profile_button_kg,
             parse_mode=ParseMode.HTML)
@@ -150,6 +153,9 @@ async def photo_handler(message: Message):
 @router.callback_query(F.data.in_(['to_home_ru', 'to_home_kg']))
 async def go_home_handler(callback_query: CallbackQuery, state: FSMContext):
     tuid = callback_query.message.chat.id
+    # Инициализируем словарь для нового пользователя, если его еще нет
+    if tuid not in sent_message_add_screen_ids:
+        sent_message_add_screen_ids[tuid] = {'bot_messages': [], 'user_messages': []}
     user_data = sent_message_add_screen_ids[tuid]
     # Добавляем сообщение бота
     user_data['bot_messages'].append(callback_query.message.message_id)
@@ -2034,8 +2040,6 @@ async def start_analogy_test(callback_query: CallbackQuery):
     telegram_id = callback_query.from_user.id
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=1, subject_id2=3)
-    print(count_passed_questions)
-
     if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
@@ -2237,7 +2241,6 @@ async def start_grammar_test(callback_query: CallbackQuery):
     telegram_id = callback_query.from_user.id
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=1, subject_id2=3)
-    print(count_passed_questions)
     if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
@@ -2464,7 +2467,6 @@ async def start_analogy_test_kg(callback_query: CallbackQuery):
     telegram_id = callback_query.from_user.id
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=2, subject_id2=4)
-    print(count_passed_questions)
     if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
@@ -2663,7 +2665,6 @@ async def start_grammar_test_kg(callback_query: CallbackQuery):
     telegram_id = callback_query.from_user.id
 
     count_passed_questions = await rq.count_user_answered_questions(telegram_id=telegram_id, subject_id1=2, subject_id2=4)
-    print(count_passed_questions)
     if count_passed_questions >= 50:
         is_vip = await rq.is_vip_user(telegram_id=telegram_id)
 
@@ -3145,8 +3146,13 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                                       f"{utils.PromptForChatGPTForKyrgyzAnalogyQuestionEnd}")
 
                     response = await gpt.get_chatgpt_response(prompt_for_gpt)
-                    explanation_text_for_user += "\n\n" + response
-                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+                    if response == "Произошла ошибка при получении ответа от ChatGPT.":
+                        explanation_text_for_user += "\n\n" + ("Жооптун түшүндүрмөсүн алууда ката кетти. Артка чыгып, "
+                                                               "кайра кирип көрүңүз. Эгер, анда дагы болбосо, админге "
+                                                               "жазыңыз.")
+                    else:
+                        explanation_text_for_user += "\n\n" + response
+                        await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
             elif question_type == "grammar":
                 if question_data:
                     question_text = f"Суроо: {question_data['question']}\n" \
@@ -3161,8 +3167,13 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                                       f"{utils.PromptForChatGPTForKyrgyzGrammarQuestionEnd}")
 
                     response = await gpt.get_chatgpt_response(prompt_for_gpt)
-                    explanation_text_for_user += "\n\n" + response
-                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+                    if response == "Произошла ошибка при получении ответа от ChatGPT.":
+                        explanation_text_for_user += "\n\n" + ("Жооптун түшүндүрмөсүн алууда ката кетти. Артка чыгып, "
+                                                               "кайра кирип көрүңүз. Эгер, анда дагы болбосо, админге "
+                                                               "жазыңыз.")
+                    else:
+                        explanation_text_for_user += "\n\n" + response
+                        await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
         elif question_language == "ru":
             question_data = await rq.get_question_and_options(question_id)
             if question_type == "analogy":
@@ -3179,8 +3190,13 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                                       f"{utils.PromptForChatGPTForRussianAnalogyQuestionEnd}")
 
                     response = await gpt.get_chatgpt_response(prompt_for_gpt)
-                    explanation_text_for_user += "\n\n" + response
-                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+                    if response == "Произошла ошибка при получении ответа от ChatGPT.":
+                        explanation_text_for_user += "\n\n" + ("Произошла ошибка при получении объяснения ответа. "
+                                                               "Вернитесь к вопросу и попробуйте войти еще раз. "
+                                                               "Если нет, напишите администратору.")
+                    else:
+                        explanation_text_for_user += "\n\n" + response
+                        await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
             elif question_type == "grammar":
                 if question_data:
                     question_text = f"Вопрос: {question_data['question']}\n" \
@@ -3195,8 +3211,13 @@ async def analysis_of_the_issue(callback_query: CallbackQuery):
                                       f"{utils.PromptForChatGPTForRussianGrammarQuestionEnd}")
 
                     response = await gpt.get_chatgpt_response(prompt_for_gpt)
-                    explanation_text_for_user += "\n\n" + response
-                    await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
+                    if response == "Произошла ошибка при получении ответа от ChatGPT.":
+                        explanation_text_for_user += "\n\n" + ("Произошла ошибка при получении объяснения ответа. "
+                                                               "Вернитесь к вопросу и попробуйте войти еще раз. "
+                                                               "Если нет, напишите администратору.")
+                    else:
+                        explanation_text_for_user += "\n\n" + response
+                        await rq.update_explanation_by_question_id(question_id=question_id, explanation_text=response)
         # Удаляем предыдущие сообщения
         await delete_previous_messages(callback_query.message, tuid)
         sent_message = await callback_query.message.answer(
