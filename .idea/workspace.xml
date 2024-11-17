@@ -5,12 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="864c11c3-89ae-451d-b617-aa10784d583b" name="Changes" comment="All folders and files are created and launched">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/database/requests.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/database/requests.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/users/user/userHandlers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/users/user/userHandlers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,7 +58,7 @@
     "Python.main.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "Merging master",
     "last_opened_file_path": "C:/Users/User/PycharmProjects/youcan-telegram-bot",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -223,7 +219,7 @@
       <workItem from="1731505614034" duration="15261000" />
       <workItem from="1731564938372" duration="47792000" />
       <workItem from="1731731112320" duration="26661000" />
-      <workItem from="1731828651285" duration="5245000" />
+      <workItem from="1731828651285" duration="7132000" />
     </task>
     <task id="LOCAL-00001" summary="All folders and files are created and launched">
       <option name="closed" value="true" />
